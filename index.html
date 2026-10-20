@@ -225,6 +225,65 @@
 
   .help { margin: 0; color: var(--muted); font-size: 14px; }
 
+  .quest-panel {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    z-index: 5;
+    max-height: 48%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: linear-gradient(to top, rgba(16, 12, 10, 0.96) 70%, rgba(16, 12, 10, 0.88));
+    border-top: 1px solid rgba(228, 194, 122, 0.35);
+  }
+  .quest-scroll { overflow: auto; min-height: 0; padding: 10px 16px 8px; }
+  .quest-dock {
+    flex: none;
+    padding: 8px 16px 12px;
+    border-top: 1px solid rgba(228, 194, 122, 0.28);
+    background: #140f0c;
+  }
+  .quest-panel .inner { width: min(760px, 100%); margin: 0 auto; }
+  .quest-panel h2 { margin: 0; font-size: 22px; letter-spacing: -0.03em; }
+  .quest-panel .who { margin-top: 2px; }
+  .split { display: grid; gap: 4px; margin-top: 8px; }
+  .split p { margin: 0; font-size: 15px; }
+  .split b { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); }
+  .setup { margin: 8px 0 0; font-size: 17px; }
+  .slips, .nodes, .quest-choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .slip, .node, .quest-choice {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    background: #1c2430;
+    color: #d5dde8;
+    border: 1px solid #314056;
+    border-radius: 10px;
+    padding: 8px 10px;
+    text-align: left;
+  }
+  .slip { max-width: 240px; }
+  .slip b, .node b { display: block; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8aa0b8; }
+  .slip.on, .node[aria-pressed="true"] { border-color: var(--gold); color: var(--ink); }
+  .slip span, .chain-note, .link-list { display: block; margin-top: 4px; color: var(--muted); font-size: 14px; font-family: ui-sans-serif, system-ui, sans-serif; }
+  .quest-choice { flex: 1 1 220px; }
+  .quest-choice.is-wrong { border-color: var(--bad); }
+  .quest-choice:disabled { opacity: 0.45; cursor: default; }
+  .link-list { margin: 8px 0 0; }
+  .link-list i { font-style: normal; color: #8fce7a; }
+  .teach {
+    margin-top: 10px;
+    background: rgba(18, 15, 12, 0.72);
+    border: 1px solid rgba(224, 122, 104, 0.55);
+    border-radius: 12px;
+    padding: 8px 12px 10px;
+  }
+  .teach.good { border-color: rgba(143, 206, 122, 0.7); }
+  .teach p { margin: 6px 0 0; font-size: 14px; }
+  .teach b { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); }
+  .recap { margin: 8px 0 0; padding-left: 18px; }
+  .recap li { margin: 4px 0; font-size: 15px; }
+  .quest-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .later { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+
   .room-copy {
     position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
     background: linear-gradient(to top, rgba(16, 12, 10, 0.94), rgba(16, 12, 10, 0.72));
@@ -276,6 +335,8 @@
     .identity { font-size: 32px; }
     .hand { flex-wrap: nowrap; }
     .unlock-row { flex-wrap: wrap; }
+    .quest-panel { max-height: 58%; }
+    .quest-choice, .slip { flex-basis: 100%; max-width: none; }
   }
   @media (prefers-reduced-motion: reduce) {
     .view { cursor: default; }
@@ -284,6 +345,7 @@
 </head>
 <body>
 <div id="app">Loading the hall…</div>
+<script src="concepts.js"></script>
 <script>
 // Add a port by copying one object. paper is that hallway's wallpaper.
 // Twins can share a color; the pattern is what tells them apart.
@@ -323,6 +385,9 @@ const state = {
   recentMisses: [],
   question: null,
   reveal: null,
+  concepts: {},
+  relations: {},
+  quest: { scene: "brief", open: false, seen: [], returnPhase: "ask", links: [], wrong: [] },
   raf: 0,
   viewRaf: 0,
   viewWatch: 0,
@@ -348,6 +413,14 @@ function save() {
     lastPort: state.lastPort,
     stats: state.stats,
     recentMisses: state.recentMisses,
+    concepts: state.concepts,
+    relations: state.relations,
+    quest: {
+      scene: state.quest.scene,
+      open: state.quest.open,
+      seen: state.quest.seen,
+      cleared: !!state.quest.cleared,
+    },
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (err) { /* private mode */ }
 }
@@ -376,7 +449,44 @@ function load() {
         follow: Number.isFinite(cur.follow) ? cur.follow : null,
       };
     }
+    state.concepts = sanitizeMastery(data.concepts);
+    state.relations = sanitizeMastery(data.relations);
+    const quest = data.quest && typeof data.quest === "object" ? data.quest : {};
+    const sceneId = questScene(quest.scene) ? quest.scene : QUEST.start;
+    state.quest.scene = sceneId;
+    state.quest.open = !!quest.open;
+    state.quest.cleared = !!quest.cleared;
+    state.quest.seen = Array.isArray(quest.seen) ? quest.seen.filter((id) => questScene(id)) : [];
   } catch (err) { /* ignore broken saves */ }
+}
+
+function sanitizeMastery(raw) {
+  const out = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const [id, cur] of Object.entries(raw)) {
+    if (!cur || typeof cur !== "object") continue;
+    out[id] = {
+      seen: !!cur.seen,
+      streak: Number(cur.streak) || 0,
+      misses: Number(cur.misses) || 0,
+    };
+  }
+  return out;
+}
+
+function masteryOf(bag, id) {
+  if (!bag[id]) bag[id] = { seen: false, streak: 0, misses: 0 };
+  return bag[id];
+}
+
+function gradeMastery(bag, id, ok) {
+  const row = masteryOf(bag, id);
+  row.seen = true;
+  if (ok) row.streak += 1;
+  else {
+    row.streak = 0;
+    row.misses += 1;
+  }
 }
 
 function esc(s) {
@@ -1028,6 +1138,7 @@ function buildRoom(entry) {
 }
 
 function activeWorld() {
+  if (state.phase === "quest") return state.quest && state.quest.world;
   if (state.phase === "ask") return state.question && state.question.world;
   if ((state.phase === "wrong" || state.phase === "right") && state.reveal) return state.reveal.world;
   return null;
@@ -1267,7 +1378,7 @@ function drawWorld(ctx, world) {
     let html = "";
     if (entry && reading) {
       html = `<b>${entry.port} ${esc(entry.service)} · ${esc(entry.who)}</b><span>${esc(entry.why || entry.tablet)}</span>`;
-    } else if (entry && world.kind !== "room") {
+    } else if (entry && (world.kind !== "room" || state.phase === "quest")) {
       html = `<span class="hint">Look up. The plaque says why.</span>`;
     }
     if (plaque.dataset.html !== html) {
@@ -1674,6 +1785,7 @@ function openDoor(index) {
 }
 
 function setMode(mode) {
+  if (state.phase === "quest" || state.phase === "weak") return;
   if (state.phase === "ask" && state.question) {
     state.pendingMode = mode === state.mode ? null : mode;
   } else {
@@ -1764,6 +1876,286 @@ function ago(lastSeen) {
   return `${d} doors ago`;
 }
 
+function questPaint(scene) {
+  const look = scene.room || {};
+  const base = look.port ? findPort(look.port) : null;
+  if (base) {
+    return {
+      ...base,
+      service: scene.character,
+      who: scene.job,
+      why: scene.mechanism,
+      tablet: scene.analogy,
+      department: "Quest 01",
+    };
+  }
+  return {
+    port: look.key || scene.id,
+    proto: "",
+    service: scene.character,
+    who: scene.job,
+    why: scene.mechanism,
+    tablet: scene.analogy,
+    color: look.color || "#8b93a0",
+    paper: look.paper || "quiet",
+    detail: look.detail || "•",
+    department: "Quest 01",
+  };
+}
+
+function ensureQuestWorld() {
+  const scene = questScene(state.quest.scene) || questScene(QUEST.start);
+  if (!state.quest.world || state.quest.worldScene !== scene.id) {
+    state.quest.world = buildRoom(questPaint(scene));
+    state.quest.worldScene = scene.id;
+    state.quest.links = [];
+    state.quest.linkFrom = null;
+    state.quest.explain = false;
+    state.quest.pendingNext = null;
+    state.quest.feedback = null;
+    state.quest.because = "";
+    state.quest.wrong = [];
+    state.quest.nodeOrder = shuffle(scene.nodes ? scene.nodes.map((node) => node.id) : []);
+  }
+  return state.quest.world;
+}
+
+function chainProgress() {
+  const rows = playableConcepts().map((concept) => masteryOf(state.concepts, concept.id));
+  const familiar = rows.filter((row) => row.streak >= 2).length;
+  const shaky = rows.filter((row) => row.seen && row.misses > 0 && row.streak < 2).length;
+  const started = rows.filter((row) => row.seen && row.misses === 0 && row.streak < 2).length;
+  const unseen = rows.filter((row) => !row.seen).length;
+  return { familiar, shaky, started, unseen, touched: rows.some((row) => row.seen) };
+}
+
+function evidenceReady(scene) {
+  if (!scene.requireEvidence) return true;
+  const opened = state.quest.opened && state.quest.opened[scene.id];
+  return (scene.evidence || []).every((slip) => opened && opened[slip.id]);
+}
+
+function teachHTML(feedback, good) {
+  if (!feedback) return "";
+  const rows = [
+    ["The mix-up", feedback.misunderstood],
+    ["What it actually does", feedback.does],
+    ["Why that does not fit", feedback.whyNot],
+    ["What fits better", feedback.whyRight],
+    ["Connected to", feedback.related],
+    ["Next time", feedback.nextTime],
+  ];
+  return `<div class="teach${good ? " good" : ""}">${rows.map(([label, text]) => `<p><b>${label}</b><br>${esc(text)}</p>`).join("")}</div>`;
+}
+
+function choiceButtons(choices, scene) {
+  const ready = evidenceReady(scene);
+  return `<div class="quest-choices">${choices.map((choice) => {
+    const wrong = (state.quest.wrong || []).includes(choice.id);
+    return `<button type="button" class="quest-choice${wrong ? " is-wrong" : ""}" data-action="quest-choice" data-choice="${esc(choice.id)}"${ready ? "" : " disabled"}>${esc(choice.label)}</button>`;
+  }).join("")}</div>${ready ? "" : `<p class="chain-note">Open every slip first. The cause is in the evidence.</p>`}`;
+}
+
+function dotsHTML(scene) {
+  const order = state.quest.nodeOrder || [];
+  const byId = new Map(scene.nodes.map((node) => [node.id, node]));
+  const nodes = order.map((id) => byId.get(id)).filter(Boolean);
+  const made = new Set(state.quest.links || []);
+  const nodeButtons = nodes.map((node) => `
+    <button type="button" class="node" data-action="quest-node" data-node="${esc(node.id)}" aria-pressed="${state.quest.linkFrom === node.id}">
+      <b>${esc(node.label)}</b>
+    </button>`).join("");
+  const labelOf = (id) => (byId.get(id) && byId.get(id).label) || id;
+  const lines = scene.links.filter((link) => made.has(`${link.from}>${link.to}`)).map((link) => `<i>${esc(labelOf(link.from))} → ${esc(labelOf(link.to))}</i> ${esc(link.label)}`);
+  const explain = state.quest.explain
+    ? `<p class="setup">${esc(scene.explain.prompt)}</p>${teachHTML(state.quest.feedback, false)}`
+    : teachHTML(state.quest.feedback, false);
+  return `
+    <div class="nodes">${nodeButtons}</div>
+    <p class="link-list">${lines.length ? lines.join("<br>") : "No connections yet. First click produces the fact. Second click receives it."}</p>
+    <p class="chain-note">${esc(scene.note)}</p>
+    ${explain}`;
+}
+
+function questHTML() {
+  const scene = questScene(state.quest.scene) || questScene(QUEST.start);
+  ensureQuestWorld();
+  const slips = (scene.evidence || []).map((slip) => {
+    const open = state.quest.opened && state.quest.opened[scene.id] && state.quest.opened[scene.id][slip.id];
+    return `<button type="button" class="slip${open ? " on" : ""}" data-action="quest-evidence" data-evidence="${esc(slip.id)}" aria-expanded="${open ? "true" : "false"}"><b>${esc(slip.title)}</b>${open ? `<span>${esc(slip.body)}</span>` : ""}</button>`;
+  }).join("");
+  let story = "";
+  let dock = "";
+  if (scene.kind === "done") {
+    const weak = playableConcepts().filter((concept) => {
+      const row = masteryOf(state.concepts, concept.id);
+      return row.seen && row.misses > 0 && row.streak < 2;
+    });
+    story = `
+      <ul class="recap">${scene.recap.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>
+      <p class="later">${weak.length ? `Shaky jobs: ${esc(weak.map((concept) => concept.name).join(", "))}. Practice uses a different slip.` : "You can leave this wing. Port streaks stay on the line above."}</p>
+      <p class="later">${esc(CHAINS.filter((chain) => chain.status !== "playable").map((chain) => chain.title).join(" · "))} use this same map. Those wings are not open.</p>`;
+    dock = `<div class="quest-actions">
+        ${weak.length ? `<button type="button" class="use" data-action="quest-practice">Practice a shaky job</button>` : ""}
+        <button type="button" class="ghost" data-action="halls">Back to the halls</button>
+      </div>`;
+  } else if (state.quest.pendingNext) {
+    story = `<div class="teach good"><p><b>Why that fits</b><br>${esc(state.quest.because || "")}</p></div>`;
+    dock = `<div class="quest-actions"><button type="button" class="use" data-action="quest-next">Continue</button></div>`;
+  } else if (scene.kind === "dots") {
+    story = dotsHTML(scene);
+    dock = state.quest.explain
+      ? choiceButtons(scene.explain.choices, scene)
+      : `<p class="chain-note">The jobs to connect are above. A backwards link is a different mistake from an unrelated one.</p>`;
+  } else {
+    story = `${slips ? `<div class="slips">${slips}</div>` : ""}${teachHTML(state.quest.feedback, false)}`;
+    dock = choiceButtons(scene.choices || [], scene);
+  }
+  return `
+    <div class="stage">
+      <canvas class="view" width="640" height="400"></canvas>
+      <p class="plaque" hidden></p>
+      <div class="quest-panel">
+        <div class="quest-scroll"><div class="inner">
+          <p class="kicker">${esc(QUEST.title)}</p>
+          <h2>${esc(scene.character)}</h2>
+          <p class="who">${esc(scene.job)}</p>
+          <div class="split">
+            <p><b>In the palace</b><br>${esc(scene.analogy)}</p>
+            <p><b>On the wire</b><br>${esc(scene.mechanism)}</p>
+          </div>
+          <p class="setup">${esc(scene.setup)}</p>
+          ${story}
+        </div></div>
+        <div class="quest-dock"><div class="inner">${dock}</div></div>
+      </div>
+    </div>
+    <p class="help">Walk the room. Drag up to read the job. Open the slips, then choose. Esc returns to the halls.</p>`;
+}
+
+function enterQuest() {
+  if (state.phase !== "quest") {
+    state.quest.returnPhase = state.phase === "weak" ? (state.heldPhase || "ask") : state.phase;
+  }
+  freezeTimer();
+  state.phase = "quest";
+  state.quest.open = true;
+  if (!questScene(state.quest.scene)) state.quest.scene = QUEST.start;
+  save();
+  render();
+}
+
+function leaveQuest() {
+  state.quest.open = false;
+  const back = state.quest.returnPhase;
+  state.phase = back === "wrong" || back === "right" || back === "ask" ? back : "ask";
+  save();
+  render();
+  startTimer();
+}
+
+function goQuestScene(id) {
+  if (!questScene(id)) return;
+  state.quest.scene = id;
+  state.quest.world = null;
+  state.quest.opened = state.quest.opened || {};
+  state.quest.opened[id] = {};
+  if (!state.quest.seen.includes(id)) state.quest.seen.push(id);
+  if (id === "done") state.quest.cleared = true;
+  state.quest.pendingNext = null;
+  state.quest.feedback = null;
+  state.quest.because = "";
+  state.quest.wrong = [];
+  state.quest.explain = false;
+  state.quest.links = [];
+  save();
+  render();
+}
+
+function gradeQuestChoice(choice) {
+  for (const id of choice.concepts || []) gradeMastery(state.concepts, id, choice.correct);
+  for (const id of choice.relations || []) gradeMastery(state.relations, id, choice.correct);
+}
+
+function pickQuestChoice(id) {
+  const scene = questScene(state.quest.scene);
+  if (!scene || !evidenceReady(scene)) return;
+  const pool = scene.kind === "dots" && state.quest.explain ? scene.explain.choices : scene.choices;
+  const choice = (pool || []).find((item) => item.id === id);
+  if (!choice || state.quest.pendingNext) return;
+  gradeQuestChoice(choice);
+  if (choice.correct) {
+    state.quest.feedback = null;
+    state.quest.pendingNext = choice.next;
+    state.quest.because = choice.because || "";
+  } else {
+    state.quest.feedback = choice.feedback;
+    state.quest.wrong = [...new Set([...(state.quest.wrong || []), choice.id])];
+  }
+  save();
+  render();
+}
+
+function openQuestSlip(id) {
+  const scene = questScene(state.quest.scene);
+  if (!scene || !(scene.evidence || []).some((slip) => slip.id === id)) return;
+  state.quest.opened = state.quest.opened || {};
+  state.quest.opened[scene.id] = state.quest.opened[scene.id] || {};
+  state.quest.opened[scene.id][id] = true;
+  render();
+}
+
+function linkQuestNodes(id) {
+  const scene = questScene(state.quest.scene);
+  if (!scene || scene.kind !== "dots" || state.quest.explain) return;
+  if (!state.quest.linkFrom) {
+    state.quest.linkFrom = id;
+    state.quest.feedback = null;
+    render();
+    return;
+  }
+  const from = state.quest.linkFrom;
+  state.quest.linkFrom = null;
+  if (from === id) {
+    render();
+    return;
+  }
+  const key = `${from}>${id}`;
+  const link = scene.links.find((item) => item.from === from && item.to === id);
+  if (!link) {
+    const nodeConcept = { host: "hostname", dns: "dns", ip: "ip", routing: "routing", firewall: "firewall", tcp: "tcp", tls: "tls", app: "application" };
+    state.quest.feedback = dotsPairFeedback(from, id);
+    gradeMastery(state.concepts, nodeConcept[from] || scene.concept, false);
+    save();
+    render();
+    return;
+  }
+  if (!(state.quest.links || []).includes(key)) {
+    state.quest.links = [...(state.quest.links || []), key];
+    if (link.relation) gradeMastery(state.relations, link.relation, true);
+  }
+  state.quest.feedback = null;
+  if (scene.links.every((item) => state.quest.links.includes(`${item.from}>${item.to}`))) {
+    state.quest.explain = true;
+  }
+  save();
+  render();
+}
+
+function practiceQuest() {
+  const ranked = playableConcepts()
+    .map((concept) => ({ concept, row: masteryOf(state.concepts, concept.id) }))
+    .filter((item) => item.row.seen && item.row.misses > 0 && item.row.streak < 2)
+    .sort((a, b) => b.row.misses - a.row.misses || a.row.streak - b.row.streak);
+  const target = ranked[0];
+  if (!target) return;
+  const options = scenesReviewing(target.concept.id)
+    .filter((scene) => scene.id !== state.quest.scene)
+    .sort((a, b) => Number(!!b.practice) - Number(!!a.practice));
+  const next = options[0] || scenesReviewing(target.concept.id)[0];
+  if (next) goQuestScene(next.id);
+}
+
 function headerHTML() {
   const pending = state.pendingMode;
   return `
@@ -1774,6 +2166,8 @@ function headerHTML() {
         <button type="button" class="seg${pending === "service" ? " is-pending" : ""}" data-action="mode" data-mode="service" aria-pressed="${state.mode === "service"}">Service → number</button>
       </div>
       <div class="toggles">
+        <button type="button" class="ghost" data-action="halls" aria-pressed="${state.phase !== "quest"}">Halls</button>
+        <button type="button" class="ghost" data-action="quest" aria-pressed="${state.phase === "quest"}">Quest 01</button>
         <button type="button" class="ghost" data-action="timer" aria-pressed="${state.timerOn}">${state.timerOn ? "Timer 8s" : "Timer off"}</button>
         <button type="button" class="ghost" data-action="weak" aria-pressed="${state.phase === "weak"}">Weak ports</button>
       </div>
@@ -1788,14 +2182,22 @@ function progressHTML() {
     const kind = s.lastSeen < 0 ? "" : s.streak >= 3 ? "learned" : "shaky";
     return `<i class="tick ${kind}"></i>`;
   }).join("");
+  const chain = chainProgress();
+  const how = state.phase === "quest"
+    ? "Each desk does one job. A success at one desk does not finish the trip."
+    : state.mode === "number"
+      ? "This key is a port number. It opens one hall, and that hall leads to the next key."
+      : "This key names a service. The halls stay plain until the key turns.";
+  const chainLine = chain.touched
+    ? `<p class="how">Chain · ${chain.familiar} familiar · ${chain.started} started · ${chain.shaky} shaky · ${chain.unseen} not seen</p>`
+    : "";
   return `
     <div class="progress">
       <div class="ticks" title="A port is learned at a streak of 3">${ticks}</div>
       <p>${learned} learned · ${shaky} shaky · ${unseen} not seen</p>
     </div>
-    <p class="how">${state.mode === "number"
-      ? "This key is a port number. It opens one hall, and that hall leads to the next key."
-      : "This key names a service. The halls stay plain until the key turns."}</p>`;
+    <p class="how">${how}</p>
+    ${chainLine}`;
 }
 
 function keyCard(extra) {
@@ -1917,26 +2319,41 @@ function weakHTML() {
 }
 
 function render() {
-  const main = state.phase === "weak" ? weakHTML() : state.phase === "ask" ? askHTML() : revealHTML();
+  const main = state.phase === "weak" ? weakHTML()
+    : state.phase === "quest" ? questHTML()
+    : state.phase === "ask" ? askHTML()
+    : revealHTML();
   app.innerHTML = `<div class="app">${headerHTML()}${progressHTML()}${main}</div>`;
   if (state.phase === "ask" && state.timerOn) syncTimerBar();
-  if (state.phase === "ask" || state.phase === "wrong" || state.phase === "right") startView();
+  if (state.phase === "ask" || state.phase === "wrong" || state.phase === "right" || state.phase === "quest") startView();
   else stopView();
 }
 
 document.addEventListener("keydown", (e) => {
   const key = e.key.toLowerCase();
   const walking = state.phase === "ask" || state.phase === "wrong" || state.phase === "right";
+  const moving = walking || state.phase === "quest";
+  if ((key === "escape" || key === "r") && state.phase === "quest" && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    e.preventDefault();
+    leaveQuest();
+    return;
+  }
   if ((key === "escape" || key === "r") && walking && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) {
     e.preventDefault();
     returnToHall();
     return;
   }
   if (key === "alt") held.add("alt");
-  if (walking && ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(key)) {
+  if (moving && ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(key)) {
     e.preventDefault();
     if (!e.repeat) held.add(key);
     if (e.altKey) held.add("alt");
+    return;
+  }
+  if ((e.key === "Enter" || e.key === " ") && state.phase === "quest") {
+    if (e.target.closest && e.target.closest("button, .quest-panel")) return;
+    e.preventDefault();
+    if (!e.repeat && state.quest.pendingNext) goQuestScene(state.quest.pendingNext);
     return;
   }
   if ((e.key === "Enter" || e.key === " ") && walking) {
@@ -1951,6 +2368,7 @@ document.addEventListener("keydown", (e) => {
     closeWeak();
     return;
   }
+  if (state.phase === "quest") return;
   if ((e.key === "t" || e.key === "T") && state.phase === "ask" && !e.metaKey && !e.ctrlKey && !e.altKey) {
     peek();
     return;
@@ -1984,6 +2402,15 @@ app.addEventListener("click", (e) => {
   else if (name === "usekey") tryOpen();
   else if (name === "back") closeWeak();
   else if (name === "advance") advance();
+  else if (name === "quest") enterQuest();
+  else if (name === "halls") {
+    if (state.phase === "quest") leaveQuest();
+  } else if (name === "quest-choice") pickQuestChoice(action.dataset.choice);
+  else if (name === "quest-evidence") openQuestSlip(action.dataset.evidence);
+  else if (name === "quest-node") linkQuestNodes(action.dataset.node);
+  else if (name === "quest-next") {
+    if (state.quest.pendingNext) goQuestScene(state.quest.pendingNext);
+  } else if (name === "quest-practice") practiceQuest();
 });
 
 window.addEventListener("resize", () => {
@@ -2011,6 +2438,7 @@ document.documentElement.style.setProperty("--locks", `url("data:image/svg+xml,$
 
 load();
 present(pickTarget());
+if (state.quest.open) enterQuest();
 </script>
 </body>
 </html>
