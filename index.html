@@ -1,0 +1,1957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Port Palace</title>
+<style>
+  :root {
+    --bg: #101114;
+    --ink: #f3f0e8;
+    --muted: #a39e93;
+    --line: #2c313c;
+    --gold: #e6c36a;
+    --paper: #f3ead4;
+    --paper-ink: #1c1915;
+    --bad: #e07a68;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse at 50% 0%, #2a2118 0%, #100e0c 55%);
+    color: var(--ink);
+    font: 18px/1.4 Georgia, "Iowan Old Style", Palatino, serif;
+  }
+  button, .help, .progress p, .how, .pending-note, .tablet, .who, .go, .note, .kicker {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+  button { font-size: 15px; color: inherit; cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  #app { height: 100%; }
+  .app {
+    height: 100%;
+    min-height: 0;
+    margin: 0 auto;
+    padding: 12px 16px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .top, .modes, .toggles { display: flex; align-items: center; gap: 8px; }
+  .top { justify-content: space-between; flex-wrap: wrap; }
+  h1 { font-size: 26px; margin: 0; font-weight: 600; letter-spacing: -0.02em; }
+  h1 span { display: block; margin-top: 1px; font-size: 13px; font-weight: 500; color: var(--gold); letter-spacing: 0.08em; text-transform: uppercase; font-family: ui-sans-serif, system-ui, sans-serif; }
+
+  .seg, .ghost {
+    background: #1a1d24;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 8px 12px;
+  }
+  .seg[aria-pressed="true"] { background: var(--ink); color: #14151a; border-color: var(--ink); }
+  .seg.is-pending { outline: 2px dashed var(--gold); outline-offset: 2px; }
+  .pending-note { margin: 0; color: var(--gold); font-size: 13px; }
+  .pending-note:empty { display: none; }
+
+  .progress { display: flex; align-items: center; gap: 12px; }
+  .ticks { display: flex; gap: 3px; flex: 1; }
+  .tick { height: 7px; flex: 1; border-radius: 99px; background: #2a2d35; }
+  .tick.learned { background: #8fce7a; }
+  .tick.shaky { background: #e0a15a; }
+  .progress p { margin: 0; color: var(--muted); font-size: 15px; white-space: nowrap; }
+  .how { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    border-radius: 18px;
+    overflow: hidden;
+    background: #120f0c;
+    box-shadow: 0 0 0 1px rgba(228, 194, 122, 0.38), 0 22px 50px rgba(0, 0, 0, 0.45);
+  }
+  .stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 46%, transparent 28%, rgba(0, 0, 0, 0.5) 100%);
+  }
+
+  .timer-track { position: absolute; top: 0; left: 0; right: 0; height: 5px; background: #2a2d35; z-index: 4; }
+  .timer-bar { height: 100%; width: 100%; background: var(--gold); transform-origin: left center; }
+  .clock {
+    position: absolute; top: 14px; right: 16px; z-index: 4;
+    font-size: 28px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums;
+  }
+
+  .view {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: #120f0c;
+    touch-action: none;
+    cursor: crosshair;
+    z-index: 1;
+    /* Chrome flashes a canvas inside a rounded, clipped stage unless it has its own layer. */
+    transform: translateZ(0);
+  }
+  .use-prompt {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 168px;
+    z-index: 3;
+    margin: 0;
+    text-align: center;
+    color: var(--gold);
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-shadow: 0 1px 0 #000;
+    pointer-events: none;
+    min-height: 1.2em;
+  }
+  .mark { font-size: 32px; line-height: 1; }
+
+  .shape.badge {
+    width: 42px; height: 54px; border: 4px solid rgba(0, 0, 0, 0.72);
+    border-radius: 8px; position: relative; z-index: 1; background: transparent;
+  }
+  .shape.badge::before {
+    content: ""; position: absolute; top: 7px; left: 50%; width: 14px; height: 14px;
+    border: 3px solid rgba(0, 0, 0, 0.72); border-radius: 50%; transform: translateX(-50%);
+  }
+  .shape.badge::after {
+    content: ""; position: absolute; bottom: 9px; left: 8px; right: 8px; height: 3px;
+    background: rgba(0, 0, 0, 0.5); box-shadow: 0 -7px 0 rgba(0, 0, 0, 0.5);
+  }
+  .shape.badge.lg { width: 84px; height: 108px; border-width: 6px; }
+  .shape.badge.lg::before { width: 28px; height: 28px; border-width: 5px; top: 14px; }
+  .shape.badge.lg::after { height: 5px; bottom: 18px; left: 16px; right: 16px; box-shadow: 0 -14px 0 rgba(0, 0, 0, 0.5); }
+  .mark.lg { font-size: 104px; }
+
+  .hand {
+    position: absolute; left: 0; right: 0; bottom: 14px; z-index: 3;
+    display: flex; justify-content: center; align-items: flex-end; gap: 14px;
+    padding: 0 16px;
+  }
+  .key {
+    background: linear-gradient(180deg, #f8f2e6, #e6d8bc);
+    color: var(--paper-ink);
+    min-width: 220px; text-align: center;
+    padding: 12px 26px 16px; border-radius: 14px;
+    border: 1px solid #c9b48a;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  }
+  .key .hole {
+    width: 12px; height: 12px; margin: 0 auto 6px;
+    border: 3px solid var(--gold); border-radius: 50%;
+    background: #8d6a32;
+    transition: transform 0.55s cubic-bezier(.2, .8, .2, 1);
+  }
+  .key.is-open .hole { transform: rotate(90deg); background: #e6c36a; }
+  .key.is-jam { animation: jam 0.4s ease-in-out 2; }
+  @keyframes jam {
+    0%, 100% { transform: none; }
+    25% { transform: translateX(-8px) rotate(-2deg); }
+    50% { transform: translateX(7px) rotate(2deg); }
+    75% { transform: translateX(-4px); }
+  }
+  .use {
+    background: var(--gold);
+    color: #1c160e;
+    border: 0;
+    border-radius: 999px;
+    padding: 10px 16px;
+    font-weight: 700;
+  }
+  .unlock-row { display: flex; gap: 18px; align-items: center; }
+  .unlock-copy { flex: 1; min-width: 0; }
+  .unlock-copy .use { margin-top: 12px; }
+  .key .k { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #6d6456; }
+  .key .v { font-size: 64px; font-weight: 700; line-height: 0.95; letter-spacing: -0.04em; }
+  .key.words .v { font-size: 36px; letter-spacing: -0.03em; line-height: 1.05; padding-top: 4px; }
+  .key.peeked { box-shadow: 0 0 0 3px var(--bad), 0 12px 28px rgba(0, 0, 0, 0.35); }
+
+  .tablet {
+    background: #1c2430; color: #d5dde8;
+    border: 1px solid #314056; border-radius: 10px;
+    padding: 10px 12px; max-width: 280px; text-align: left;
+  }
+  .tablet b { display: block; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #8aa0b8; font-weight: 700; }
+  .tablet span { display: block; margin-top: 3px; font-size: 14px; color: #8aa0b8; }
+  .tablet.on span { color: #d5dde8; font-size: 16px; }
+
+  .help { margin: 0; color: var(--muted); font-size: 14px; }
+
+  .room-copy {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
+    background: linear-gradient(to top, rgba(16, 12, 10, 0.94), rgba(16, 12, 10, 0.72));
+    border-top: 1px solid rgba(228, 194, 122, 0.35);
+    padding: 16px 20px 18px;
+  }
+  .room-copy .inner { width: min(720px, 100%); margin: 0 auto; }
+  .kicker { margin: 0 0 6px; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); }
+  .kicker.bad { color: var(--bad); }
+  .sentence { margin: 0; font-size: 26px; line-height: 1.35; font-weight: 600; }
+  .identity { margin: 0; font-size: 40px; letter-spacing: -0.04em; line-height: 1; }
+  .identity b { font-weight: 700; }
+  .who, .mnemonic, .note, .go { margin: 6px 0 0; }
+  .who { color: var(--muted); }
+  .mnemonic { font-size: 18px; }
+  .note { color: var(--gold); }
+  .go { color: var(--muted); font-size: 15px; }
+
+  .weak { position: absolute; inset: 0; overflow: auto; background: #12141a; padding: 22px; }
+  .weak h2 { margin: 0 0 14px; font-size: 28px; }
+  .weak ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .weak li {
+    display: flex; gap: 14px; align-items: center;
+    background: #1a1d24; border-radius: 12px; padding: 10px 12px;
+  }
+  .swatch {
+    width: 72px; height: 72px; flex: none; border-radius: 8px;
+    display: grid; place-items: center; background-color: var(--wall);
+    background-size: 32px 32px;
+  }
+  .swatch.secure { background-image: var(--locks); background-size: 28px 28px; }
+  .swatch .mark { font-size: 32px; }
+  .weak li strong { display: block; font-size: 20px; }
+  .weak li em { font-style: normal; color: var(--muted); font-size: 15px; }
+  .empty { color: var(--muted); font-size: 18px; }
+  .back {
+    margin-top: 16px; background: var(--ink); color: #14151a; border: 0;
+    border-radius: 999px; padding: 8px 14px;
+  }
+
+  @media (max-width: 800px) {
+    .modes { order: 3; flex: 1 0 100%; }
+    .modes .seg { flex: 1; text-align: center; }
+    .key { min-width: 0; flex: 1.2 1 140px; padding: 8px 12px 10px; }
+    .key .v { font-size: 44px; }
+    .key.words .v { font-size: 26px; }
+    .tablet { flex: 1 1 120px; max-width: none; }
+    .sentence { font-size: 20px; }
+    .identity { font-size: 32px; }
+    .hand { flex-wrap: nowrap; }
+    .unlock-row { flex-wrap: wrap; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .view { cursor: default; }
+  }
+</style>
+</head>
+<body>
+<div id="app">Loading the hall…</div>
+<script>
+// Add a port by copying one object. paper is that hallway's wallpaper.
+// Twins can share a color; the pattern is what tells them apart.
+// neighbors are port numbers of easy mix-ups.
+const PORTS = [
+  { port: 53, proto: "UDP/TCP", service: "DNS", tablet: "The phonebook. Names to IP addresses.", color: "#3b6fd6", paper: "lines", detail: "📞", department: "Front Desk", who: "the receptionist", neighbors: [67, 68] },
+  { port: 67, proto: "UDP", service: "DHCP server", tablet: "Hands out addresses. 67 hands out.", color: "#1f8f86", paper: "dots", detail: "🔑", department: "Front Desk", who: "the badge office", neighbors: [68, 53] },
+  { port: 68, proto: "UDP", service: "DHCP client", tablet: "Asks for an address. 68 asks.", color: "#1f8f86", paper: "badge", detail: "badge", department: "Front Desk", who: "the visitor", neighbors: [67, 53] },
+  { port: 80, proto: "TCP", service: "HTTP", tablet: "Web, unencrypted.", color: "#8ecae6", paper: "panels", detail: "🚪", department: "Lobby", who: "the open lobby", neighbors: [443] },
+  { port: 443, proto: "TCP", service: "HTTPS", tablet: "Web, encrypted (TLS).", color: "#8ecae6", paper: "bars", detail: "🔒", secure: true, department: "Lobby", who: "the locked lobby", neighbors: [80] },
+  { port: 22, proto: "TCP", service: "SSH", tablet: "Encrypted remote shell.", color: "#6b1c1c", paper: "quiet", detail: "🤫", department: "Security", who: "the quiet guard", neighbors: [23, 3389] },
+  { port: 23, proto: "TCP", service: "Telnet", tablet: "Remote shell in plaintext.", color: "#ff3b30", paper: "hazard", detail: "📢", department: "Security", who: "the loud guard", neighbors: [22] },
+  { port: 25, proto: "TCP", service: "SMTP", tablet: "Sends mail out.", color: "#f0c043", paper: "arrows", detail: "📬", department: "Mailroom", who: "the outgoing slot", neighbors: [110, 143] },
+  { port: 110, proto: "TCP", service: "POP3", tablet: "Downloads mail and usually removes it from the server.", color: "#e2a20a", paper: "slots", detail: "📥", department: "Mailroom", who: "the pickup window", neighbors: [995, 25, 143] },
+  { port: 995, proto: "TCP", service: "POP3S", tablet: "POP3 over TLS. Same pickup, locked.", color: "#e2a20a", paper: "lockedslots", detail: "✉️", secure: true, department: "Mailroom", who: "the locked pickup", neighbors: [110] },
+  { port: 143, proto: "TCP", service: "IMAP", tablet: "Reads mail and leaves it on the server.", color: "#f3d36a", paper: "shelves", detail: "🗂️", department: "Mailroom", who: "the mail shelf", neighbors: [993, 25, 110] },
+  { port: 993, proto: "TCP", service: "IMAPS", tablet: "IMAP over TLS. Same shelf, locked.", color: "#f3d36a", paper: "lockedshelves", detail: "📚", secure: true, department: "Mailroom", who: "the locked shelf", neighbors: [143] },
+  { port: 389, proto: "TCP", service: "LDAP", tablet: "Directory lookups. Who works here.", color: "#7e8b99", paper: "drawers", detail: "🗄️", department: "HR Directory", who: "the open cabinet", neighbors: [636] },
+  { port: 636, proto: "TCP", service: "LDAPS", tablet: "LDAP over TLS. Same cabinet, locked.", color: "#7e8b99", paper: "lockeddrawers", detail: "📇", secure: true, department: "HR Directory", who: "the locked cabinet", neighbors: [389] },
+  { port: 3389, proto: "TCP", service: "RDP", tablet: "Remote desktop.", color: "#d6453d", paper: "grid", detail: "🖥️", department: "Security", who: "the screen room", neighbors: [22, 23] },
+];
+
+const BY_PORT = new Map(PORTS.map((p) => [p.port, p]));
+const STORAGE_KEY = "port-palace-v1";
+// Correct answers wait this many questions. A miss uses 2–3, then ~8, instead.
+const STREAK_GAP = [0, 8, 14, 22, 34, 50];
+
+const state = {
+  mode: "number",
+  pendingMode: null,
+  timerOn: false,
+  phase: "ask",
+  heldPhase: "ask",
+  q: 0,
+  lastPort: null,
+  stats: {},
+  recentMisses: [],
+  question: null,
+  reveal: null,
+  raf: 0,
+  viewRaf: 0,
+  viewWatch: 0,
+};
+
+const app = document.querySelector("#app");
+
+function findPort(n) { return BY_PORT.get(n) || null; }
+
+function stat(entry) {
+  const id = String(entry.port);
+  if (!state.stats[id]) {
+    state.stats[id] = { streak: 0, misses: 0, peeks: 0, lastSeen: -1, due: null, follow: null };
+  }
+  return state.stats[id];
+}
+
+function save() {
+  const data = {
+    mode: state.mode,
+    timerOn: state.timerOn,
+    q: state.q,
+    lastPort: state.lastPort,
+    stats: state.stats,
+    recentMisses: state.recentMisses,
+  };
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (err) { /* private mode */ }
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== "object") return;
+    state.mode = data.mode === "service" ? "service" : "number";
+    state.timerOn = !!data.timerOn;
+    state.q = Number(data.q) || 0;
+    state.lastPort = Number(data.lastPort) || null;
+    state.recentMisses = Array.isArray(data.recentMisses) ? data.recentMisses.filter((m) => m && m.port) : [];
+    const stats = data.stats && typeof data.stats === "object" ? data.stats : {};
+    state.stats = {};
+    for (const entry of PORTS) {
+      const cur = stats[String(entry.port)] || {};
+      state.stats[String(entry.port)] = {
+        streak: Number(cur.streak) || 0,
+        misses: Number(cur.misses) || 0,
+        peeks: Number(cur.peeks) || 0,
+        lastSeen: Number.isFinite(cur.lastSeen) ? cur.lastSeen : -1,
+        due: Number.isFinite(cur.due) ? cur.due : null,
+        follow: Number.isFinite(cur.follow) ? cur.follow : null,
+      };
+    }
+  } catch (err) { /* ignore broken saves */ }
+}
+
+function esc(s) {
+  return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+}
+
+function safeColor(color) {
+  return /^[#a-zA-Z0-9(),.%\s-]+$/.test(color) ? color : "#888";
+}
+
+function randInt(min, max) {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+function shuffle(list) {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function weightedPick(items, weightOf) {
+  if (!items.length) return null;
+  const weights = items.map(weightOf);
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  if (total <= 0) return items[Math.floor(Math.random() * items.length)];
+  let r = Math.random() * total;
+  for (let i = 0; i < items.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return items[i];
+  }
+  return items[items.length - 1];
+}
+
+function gapFor(streak) {
+  return STREAK_GAP[Math.min(Math.max(streak, 1), STREAK_GAP.length - 1)];
+}
+
+// A miss or peek returns in 2–3 questions, then again about 8 later.
+// A correct answer keeps that ~8 visit when it is still ahead. Otherwise
+// the next visit moves out by the streak gap. Neighbors are pulled in soon.
+function scheduleMiss(entry, idx) {
+  const s = stat(entry);
+  s.streak = 0;
+  s.misses += 1;
+  if (state.question && state.question.peeked) s.peeks += 1;
+  s.lastSeen = idx;
+  s.due = idx + randInt(2, 3);
+  s.follow = idx + randInt(7, 9);
+  state.recentMisses.push({ port: entry.port, at: idx });
+  state.recentMisses = state.recentMisses.filter((m) => idx - m.at <= 12).slice(-24);
+  for (const n of entry.neighbors) {
+    const other = findPort(n);
+    if (!other) continue;
+    const ns = stat(other);
+    const pull = idx + randInt(3, 5);
+    if (ns.due == null || ns.due > pull) ns.due = pull;
+  }
+}
+
+function scheduleHit(entry, idx) {
+  const s = stat(entry);
+  s.streak += 1;
+  s.lastSeen = idx;
+  if (s.follow != null && s.follow > idx + 1) {
+    s.due = s.follow;
+    s.follow = null;
+  } else {
+    s.due = idx + gapFor(s.streak);
+    s.follow = null;
+  }
+}
+
+function isHotNeighbor(entry) {
+  return state.recentMisses.some((m) => {
+    if (state.q - m.at > 8) return false;
+    const src = findPort(m.port);
+    return src && src.neighbors.includes(entry.port);
+  });
+}
+
+function deptStarted(entry) {
+  return PORTS.some((o) => o.department === entry.department && o.port !== entry.port && stat(o).lastSeen >= 0);
+}
+
+function pickTarget() {
+  const idx = state.q + 1;
+  const fresh = PORTS.filter((p) => p.port !== state.lastPort);
+  const pool = fresh.length ? fresh : PORTS;
+  const overdue = pool.filter((p) => {
+    const due = stat(p).due;
+    return due != null && due <= idx;
+  });
+  if (overdue.length) {
+    return weightedPick(overdue, (p) => {
+      const s = stat(p);
+      return 10 + (idx - s.due) * 5 + s.misses * 3 + (s.streak === 0 ? 4 : 0) + (isHotNeighbor(p) ? 8 : 0);
+    });
+  }
+  const open = pool.filter((p) => stat(p).lastSeen < 0 || stat(p).due == null);
+  if (open.length) {
+    return weightedPick(open, (p) => {
+      const s = stat(p);
+      if (s.lastSeen < 0) return 8 + (deptStarted(p) ? 6 : 0);
+      return 4 + s.misses * 3 + Math.max(0, 3 - s.streak) * 2;
+    });
+  }
+  return pool.slice().sort((a, b) => stat(a).due - stat(b).due)[0];
+}
+
+function pickDoors(target) {
+  const wanted = target.neighbors.length >= 2 ? 3 : 2;
+  const chosen = [];
+  const add = (entry) => {
+    if (!entry || entry.port === target.port) return;
+    if (chosen.some((c) => c.port === entry.port)) return;
+    if (chosen.length >= wanted) return;
+    chosen.push(entry);
+  };
+  shuffle(target.neighbors.map(findPort)).forEach(add);
+  shuffle(PORTS.filter((p) => p.department === target.department)).forEach(add);
+  shuffle(PORTS).forEach(add);
+  return shuffle([target, ...chosen]);
+}
+
+function progressOf() {
+  let learned = 0;
+  let shaky = 0;
+  let unseen = 0;
+  for (const entry of PORTS) {
+    const s = stat(entry);
+    if (s.lastSeen < 0) unseen += 1;
+    else if (s.streak >= 3) learned += 1;
+    else shaky += 1;
+  }
+  return { learned, shaky, unseen };
+}
+
+function worstPorts() {
+  return PORTS
+    .map((entry) => {
+      const s = stat(entry);
+      const score = s.lastSeen < 0 && s.misses === 0 ? -1 : s.misses * 5 - s.streak * 3;
+      return { entry, s, score };
+    })
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score || b.s.misses - a.s.misses || a.entry.port - b.entry.port)
+    .slice(0, 5);
+}
+
+function detailHTML(detail, large) {
+  const lg = large ? " lg" : "";
+  if (detail === "badge") return `<span class="shape badge${lg}"></span>`;
+  return `<span class="mark${lg}">${esc(detail)}</span>`;
+}
+
+// Wolfenstein-style raycaster. The hall is a grid; each screen column is one ray.
+const FOV = Math.PI / 3;
+const held = new Set();
+let viewGen = 0;
+const stamp = document.createElement("canvas");
+const stampCtx = stamp.getContext("2d");
+
+const TEX = 32;
+const tileCache = new Map();
+
+function paperInk(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const lum = (((n >> 16) & 255) * 0.3 + ((n >> 8) & 255) * 0.59 + (n & 255) * 0.11) / 255;
+  return lum < 0.55 ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.78)";
+}
+
+function makeTile(color, draw) {
+  const c = document.createElement("canvas");
+  c.width = c.height = TEX * 2;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = true;
+  g.imageSmoothingQuality = "high";
+  g.setTransform(2, 0, 0, 2, 0, 0);
+  g.fillStyle = color;
+  g.fillRect(0, 0, TEX, TEX);
+  draw(g, paperInk(color));
+  c.mips = mipChain(c);
+  return c;
+}
+
+function downscaleTile(src, size) {
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = true;
+  g.imageSmoothingQuality = "high";
+  g.drawImage(src, 0, 0, size, size);
+  return c;
+}
+
+function padWrap(src) {
+  const c = document.createElement("canvas");
+  c.width = src.width + 2;
+  c.height = src.height;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  g.drawImage(src, 1, 0);
+  g.drawImage(src, src.width - 1, 0, 1, src.height, 0, 0, 1, src.height);
+  g.drawImage(src, 0, 0, 1, src.height, src.width + 1, 0, 1, src.height);
+  return c;
+}
+
+function mipChain(src) {
+  const levels = [src];
+  let size = src.width;
+  while (size > 8) {
+    size /= 2;
+    levels.push(downscaleTile(levels[levels.length - 1], size));
+  }
+  return levels.map(padWrap);
+}
+
+const PAPERS = {
+  lines: (color) => makeTile(color, (g, ink) => {
+    g.fillStyle = ink;
+    for (let y = 3; y < TEX; y += 8) g.fillRect(0, y, TEX, 3);
+  }),
+  dots: (color) => makeTile(color, (g, ink) => {
+    g.fillStyle = ink;
+    for (let y = 8; y < TEX; y += 16) {
+      for (let x = 8; x < TEX; x += 16) {
+        g.beginPath();
+        g.arc(x, y, 4, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+  }),
+  badge: (color) => makeTile(color, (g, ink) => {
+    g.strokeStyle = ink;
+    g.lineWidth = 2;
+    g.strokeRect(6, 3, 20, 26);
+    g.beginPath();
+    g.arc(16, 11, 4, 0, Math.PI * 2);
+    g.stroke();
+    g.fillStyle = ink;
+    g.fillRect(10, 18, 12, 2);
+    g.fillRect(10, 23, 12, 2);
+  }),
+  panels: (color) => makeTile(color, (g, ink) => {
+    g.fillStyle = ink;
+    g.fillRect(2, 2, 12, 28);
+    g.fillRect(18, 2, 12, 28);
+  }),
+  bars: (color) => makeTile(color, (g, ink) => {
+    g.fillStyle = ink;
+    for (let x = 0; x < TEX; x += 8) g.fillRect(x, 0, 4, TEX);
+  }),
+  quiet: (color) => makeTile(color, (g, ink) => {
+    g.fillStyle = ink;
+    for (let y = 3; y < TEX; y += 8) {
+      for (let x = 3 + (Math.floor(y / 8) % 2) * 4; x < TEX; x += 8) g.fillRect(x, y, 2, 2);
+    }
+  }),
+  hazard: (color) => makeTile(color, (g, ink) => {
+    g.fillStyle = ink;
+    g.beginPath();
+    for (let i = -TEX; i < TEX * 2; i += 14) {
+      g.moveTo(i, 0);
+      g.lineTo(i + 7, 0);
+      g.lineTo(i + 7 + TEX, TEX);
+      g.lineTo(i + TEX, TEX);
+      g.closePath();
+    }
+    g.fill();
+  }),
+  arrows: (color) => makeTile(color, (g, ink) => {
+    g.fillStyle = ink;
+    for (const y of [8, 24]) {
+      g.beginPath();
+      g.moveTo(6, y - 6);
+      g.lineTo(24, y);
+      g.lineTo(6, y + 6);
+      g.closePath();
+      g.fill();
+    }
+  }),
+  slots: (color) => makeTile(color, (g, ink) => {
+    g.fillStyle = ink;
+    g.fillRect(0, 5, TEX, 7);
+    g.fillRect(0, 20, TEX, 7);
+  }),
+  lockedslots: (color) => makeTile(color, (g, ink) => {
+    g.fillStyle = ink;
+    g.fillRect(0, 5, TEX, 7);
+    g.fillRect(0, 20, TEX, 7);
+    g.fillRect(0, 0, 5, TEX);
+    g.fillRect(27, 0, 5, TEX);
+  }),
+  shelves: (color) => makeTile(color, (g, ink) => {
+    g.fillStyle = ink;
+    g.fillRect(0, 2, TEX, 4);
+    g.fillRect(0, 14, TEX, 4);
+    g.fillRect(0, 26, TEX, 4);
+  }),
+  lockedshelves: (color) => makeTile(color, (g, ink) => {
+    g.fillStyle = ink;
+    g.fillRect(0, 2, TEX, 4);
+    g.fillRect(0, 14, TEX, 4);
+    g.fillRect(0, 26, TEX, 4);
+    g.fillRect(14, 0, 4, TEX);
+  }),
+  drawers: (color) => makeTile(color, (g, ink) => {
+    g.strokeStyle = ink;
+    g.lineWidth = 2;
+    g.strokeRect(3, 2, 26, 8);
+    g.strokeRect(3, 12, 26, 8);
+    g.strokeRect(3, 22, 26, 8);
+    g.fillStyle = ink;
+    g.fillRect(14, 5, 4, 2);
+    g.fillRect(14, 15, 4, 2);
+    g.fillRect(14, 25, 4, 2);
+  }),
+  lockeddrawers: (color) => makeTile(color, (g, ink) => {
+    g.strokeStyle = ink;
+    g.lineWidth = 2;
+    g.strokeRect(3, 2, 26, 8);
+    g.strokeRect(3, 12, 26, 8);
+    g.strokeRect(3, 22, 26, 8);
+    g.fillStyle = ink;
+    g.beginPath();
+    g.arc(16, 16, 5, 0, Math.PI * 2);
+    g.fill();
+  }),
+  grid: (color) => makeTile(color, (g, ink) => {
+    g.strokeStyle = ink;
+    g.lineWidth = 3;
+    g.strokeRect(2, 2, 28, 28);
+    g.beginPath();
+    g.moveTo(16, 2);
+    g.lineTo(16, 30);
+    g.moveTo(2, 16);
+    g.lineTo(30, 16);
+    g.stroke();
+  }),
+};
+
+function paperTile(entry) {
+  let tile = tileCache.get(entry.port);
+  if (tile) return tile;
+  const make = PAPERS[entry.paper];
+  if (!make) console.warn("Missing wallpaper", entry.paper, "on port", entry.port);
+  tile = (make || PAPERS.bars)(entry.color);
+  tileCache.set(entry.port, tile);
+  return tile;
+}
+
+function paperURL(entry) {
+  const tile = paperTile(entry);
+  if (!tile.url) tile.url = tile.toDataURL();
+  return tile.url;
+}
+
+// Narrowest real corridor is 2 cells wide (half-width 1). Also require a fit
+// in a 3-wide and a 4-wide hall. 0.2 is well under half of all three.
+const RADIUS = 0.2;
+
+function solidAt(world, x, y) {
+  const col = world.grid[Math.floor(y)];
+  if (!col) return true;
+  const cell = col[Math.floor(x)];
+  return cell == null || cell > 0;
+}
+
+function blocked(world, x, y) {
+  const r = RADIUS;
+  const spots = [
+    [x, y],
+    [x - r, y], [x + r, y], [x, y - r], [x, y + r],
+    [x - r, y - r], [x + r, y - r], [x - r, y + r], [x + r, y + r],
+  ];
+  return spots.some(([px, py]) => solidAt(world, px, py));
+}
+
+function narrowestOpenRun(grid) {
+  let best = Infinity;
+  const h = grid.length;
+  const w = grid[0].length;
+  for (let y = 0; y < h; y++) {
+    let run = 0;
+    for (let x = 0; x <= w; x++) {
+      if (x < w && grid[y][x] === 0) run += 1;
+      else {
+        if (run > 0 && run < best) best = run;
+        run = 0;
+      }
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let run = 0;
+    for (let y = 0; y <= h; y++) {
+      if (y < h && grid[y][x] === 0) run += 1;
+      else {
+        if (run > 0 && run < best) best = run;
+        run = 0;
+      }
+    }
+  }
+  return best === Infinity ? 0 : best;
+}
+
+function radiusFits(cells) {
+  return RADIUS < cells / 2 - 0.05;
+}
+
+function checkRadius(grid) {
+  const narrow = narrowestOpenRun(grid);
+  if (!radiusFits(narrow) || !radiusFits(3) || !radiusFits(4)) {
+    console.warn("Collision radius", RADIUS, "is too big for corridor width", narrow);
+  }
+}
+
+function nearestOpenCenter(world, x, y) {
+  let best = null;
+  let bestD = Infinity;
+  const grid = world.grid;
+  for (let cy = 0; cy < grid.length; cy++) {
+    for (let cx = 0; cx < grid[cy].length; cx++) {
+      if (grid[cy][cx] !== 0) continue;
+      const px = cx + 0.5;
+      const py = cy + 0.5;
+      if (blocked(world, px, py)) continue;
+      const d = (px - x) * (px - x) + (py - y) * (py - y);
+      if (d < bestD) {
+        bestD = d;
+        best = { x: px, y: py };
+      }
+    }
+  }
+  return best;
+}
+
+function safePoint(world, x, y, angle) {
+  const cx = Math.floor(x);
+  const cy = Math.floor(y);
+  const px = cx + 0.5;
+  const py = cy + 0.5;
+  if (world.grid[cy]?.[cx] === 0 && !blocked(world, px, py)) return { x: px, y: py, angle };
+  const found = nearestOpenCenter(world, x, y);
+  return found ? { x: found.x, y: found.y, angle } : { x: px, y: py, angle };
+}
+
+function penetration(world, x, y) {
+  const r = RADIUS;
+  let pen = 0;
+  const x0 = Math.floor(x - r);
+  const x1 = Math.floor(x + r);
+  const y0 = Math.floor(y - r);
+  const y1 = Math.floor(y + r);
+  for (let cy = y0; cy <= y1; cy++) {
+    for (let cx = x0; cx <= x1; cx++) {
+      if (!solidAt(world, cx + 0.5, cy + 0.5)) continue;
+      const qx = Math.max(cx, Math.min(x, cx + 1));
+      const qy = Math.max(cy, Math.min(y, cy + 1));
+      const d = Math.hypot(x - qx, y - qy);
+      if (d < r) pen = Math.max(pen, r - d);
+    }
+  }
+  return pen;
+}
+
+function distToOpen(world, x, y) {
+  let best = Infinity;
+  const gx = Math.floor(x);
+  const gy = Math.floor(y);
+  const grid = world.grid;
+  for (let cy = gy - 4; cy <= gy + 4; cy++) {
+    for (let cx = gx - 4; cx <= gx + 4; cx++) {
+      if (cy < 0 || cx < 0 || cy >= grid.length || cx >= grid[0].length) continue;
+      if (grid[cy][cx] !== 0) continue;
+      const d = Math.hypot(x - (cx + 0.5), y - (cy + 0.5));
+      if (d < best) best = d;
+    }
+  }
+  return best;
+}
+
+function slideAxis(world, p, axis, next) {
+  if (next === p[axis]) return false;
+  const nx = axis === "x" ? next : p.x;
+  const ny = axis === "y" ? next : p.y;
+  if (!blocked(world, nx, ny)) {
+    p[axis] = next;
+    return true;
+  }
+  if (!blocked(world, p.x, p.y)) {
+    return false;
+  }
+  // Already overlapping a wall. A step that does not dig in is allowed, so a
+  // graze still slides. Buried in a solid cell, only a step that gets farther
+  // from that wall (less overlap, or closer to an open center) is allowed.
+  const beforePen = penetration(world, p.x, p.y);
+  const afterPen = penetration(world, nx, ny);
+  const beforeOpen = distToOpen(world, p.x, p.y);
+  const afterOpen = distToOpen(world, nx, ny);
+  const centerSolid = solidAt(world, p.x, p.y);
+  const escapes = afterPen < beforePen - 1e-6 || afterOpen < beforeOpen - 1e-6;
+  const slides = !centerSolid && afterPen <= beforePen + 1e-6;
+  if (escapes || slides) {
+    p[axis] = next;
+    return true;
+  }
+  return false;
+}
+
+function nudgeOpen(world) {
+  const spot = nearestOpenCenter(world, world.player.x, world.player.y);
+  if (!spot) return;
+  world.player.x = spot.x;
+  world.player.y = spot.y;
+  world.stuckFor = 0;
+}
+
+function buildHall(doors) {
+  const size = 21;
+  const grid = Array.from({ length: size }, () => Array(size).fill(1));
+  for (let y = 8; y <= 12; y++) {
+    for (let x = 8; x <= 12; x++) grid[y][x] = 0;
+  }
+  // Long arms off a junction, so each port is a hallway you can look down.
+  const arms = [
+    {
+      run: (code) => {
+        for (let y = 1; y <= 7; y++) {
+          grid[y][8] = code;
+          grid[y][11] = code;
+          grid[y][9] = y === 1 ? code : 0;
+          grid[y][10] = y === 1 ? code : 0;
+        }
+      },
+      inside: { x0: 9, x1: 11, y0: 2, y1: 8 },
+      at: { x: 9.5, y: 2.4 },
+      mouth: { x: 9.5, y: 6.7 },
+      stand: { x: 10.5, y: 4.5, angle: -Math.PI / 2 },
+    },
+    {
+      run: (code) => {
+        for (let x = 13; x <= 19; x++) {
+          grid[8][x] = code;
+          grid[11][x] = code;
+          grid[9][x] = x === 19 ? code : 0;
+          grid[10][x] = x === 19 ? code : 0;
+        }
+      },
+      inside: { x0: 13, x1: 19, y0: 9, y1: 11 },
+      at: { x: 18.4, y: 9.5 },
+      mouth: { x: 13.6, y: 9.5 },
+      stand: { x: 15.5, y: 10.5, angle: 0 },
+    },
+    {
+      run: (code) => {
+        for (let x = 1; x <= 7; x++) {
+          grid[8][x] = code;
+          grid[11][x] = code;
+          grid[9][x] = x === 1 ? code : 0;
+          grid[10][x] = x === 1 ? code : 0;
+        }
+      },
+      inside: { x0: 2, x1: 8, y0: 9, y1: 11 },
+      at: { x: 2.4, y: 9.5 },
+      mouth: { x: 7.2, y: 9.5 },
+      stand: { x: 5.5, y: 10.5, angle: Math.PI },
+    },
+    {
+      run: (code) => {
+        for (let y = 13; y <= 19; y++) {
+          grid[y][8] = code;
+          grid[y][11] = code;
+          grid[y][9] = y === 19 ? code : 0;
+          grid[y][10] = y === 19 ? code : 0;
+        }
+      },
+      inside: { x0: 9, x1: 11, y0: 13, y1: 19 },
+      at: { x: 9.5, y: 18.4 },
+      mouth: { x: 9.5, y: 13.6 },
+      stand: { x: 10.5, y: 15.5, angle: Math.PI / 2 },
+    },
+  ];
+  const placed = [];
+  const halls = [];
+  for (let i = 0; i < doors.length && i < arms.length; i++) {
+    const arm = arms[i];
+    const code = 2 + i;
+    arm.run(code);
+    halls.push({ ...arm.inside, index: i, stand: arm.stand });
+    placed.push({
+      x: arm.at.x,
+      y: arm.at.y,
+      mx: arm.mouth.x,
+      my: arm.mouth.y,
+      index: i,
+      entry: doors[i],
+    });
+  }
+  checkRadius(grid);
+  const world = {
+    kind: "hall",
+    grid,
+    doors: placed,
+    halls,
+    player: { x: 10.5, y: 10.5, angle: -Math.PI / 2 },
+    bob: 0,
+    stuckFor: 0,
+    spawnedHall: -1,
+  };
+  world.home = safePoint(world, 10.5, 10.5, -Math.PI / 2);
+  world.player.x = world.home.x;
+  world.player.y = world.home.y;
+  world.player.angle = world.home.angle;
+  for (const hall of halls) {
+    hall.spawn = safePoint(world, hall.stand.x, hall.stand.y, hall.stand.angle);
+  }
+  return world;
+}
+
+function buildRoom(entry) {
+  const n = 7;
+  const grid = Array.from({ length: n }, () => Array(n).fill(0));
+  for (let i = 0; i < n; i++) {
+    grid[0][i] = 1;
+    grid[n - 1][i] = 1;
+    grid[i][0] = 1;
+    grid[i][n - 1] = 1;
+  }
+  const world = {
+    kind: "room",
+    grid,
+    doors: [],
+    paint: entry,
+    sprite: { x: 4.2, y: 2.85, entry },
+    player: { x: 3.5, y: 4.5, angle: -Math.PI / 2 },
+    bob: 0,
+    stuckFor: 0,
+  };
+  checkRadius(grid);
+  const spawn = safePoint(world, 3.5, 4.5, -Math.PI / 2);
+  world.home = spawn;
+  world.player.x = spawn.x;
+  world.player.y = spawn.y;
+  world.player.angle = spawn.angle;
+  return world;
+}
+
+function activeWorld() {
+  if (state.phase === "ask") return state.question && state.question.world;
+  if ((state.phase === "wrong" || state.phase === "right") && state.reveal) return state.reveal.world;
+  return null;
+}
+
+function glide(current, target, dt) {
+  const t = 1 - Math.exp(-dt * 9);
+  return current + (target - current) * t;
+}
+
+function stopGlide(world) {
+  world.moveX = 0;
+  world.moveS = 0;
+  world.turnV = 0;
+}
+
+function stepWorld(world, dt) {
+  const p = world.player;
+  let turn = 0;
+  let forward = 0;
+  let strafe = 0;
+  if (held.has("arrowleft")) turn -= 1;
+  if (held.has("arrowright")) turn += 1;
+  if (held.has("arrowup") || held.has("w")) forward += 1;
+  if (held.has("arrowdown") || held.has("s")) forward -= 1;
+  if (held.has("a")) strafe -= 1;
+  if (held.has("d")) strafe += 1;
+  if (held.has("alt") && (held.has("arrowleft") || held.has("arrowright"))) {
+    strafe += (held.has("arrowright") ? 1 : 0) - (held.has("arrowleft") ? 1 : 0);
+    turn = 0;
+  }
+  world.moveX = glide(world.moveX || 0, forward, dt);
+  world.moveS = glide(world.moveS || 0, strafe, dt);
+  world.turnV = glide(world.turnV || 0, turn, dt);
+  p.angle += world.turnV * 2.5 * dt;
+  const dirX = Math.cos(p.angle);
+  const dirY = Math.sin(p.angle);
+  const rightX = -Math.sin(p.angle);
+  const rightY = Math.cos(p.angle);
+  const speed = 2.2 * dt;
+  const nx = p.x + (dirX * world.moveX + rightX * world.moveS) * speed;
+  const ny = p.y + (dirY * world.moveX + rightY * world.moveS) * speed;
+  const x0 = p.x;
+  const y0 = p.y;
+  slideAxis(world, p, "x", nx);
+  slideAxis(world, p, "y", ny);
+  const moving = forward !== 0 || strafe !== 0;
+  if (moving && p.x === x0 && p.y === y0) {
+    world.stuckFor = (world.stuckFor || 0) + dt;
+    if (world.stuckFor >= 1.5) nudgeOpen(world);
+  } else {
+    world.stuckFor = 0;
+  }
+  world.bob += dt * 10 * Math.hypot(world.moveX || 0, world.moveS || 0);
+}
+
+function facedDoor() {
+  const world = state.question && state.question.world;
+  if (!world || state.phase !== "ask") return null;
+  return world.faced || null;
+}
+
+function hallAt(world, x, y) {
+  if (!world.halls) return null;
+  for (const hall of world.halls) {
+    if (x >= hall.x0 && x < hall.x1 && y >= hall.y0 && y < hall.y1) return hall;
+  }
+  return null;
+}
+
+function wallEntry(world, hit) {
+  if (hit >= 2) return world.doors[hit - 2] && world.doors[hit - 2].entry;
+  if (hit === 1 && world.paint) return world.paint;
+  return null;
+}
+
+function paperVisible(world) {
+  return world.kind === "room" || state.mode === "number";
+}
+
+const WALL_SHADE = document.createElement("canvas");
+WALL_SHADE.width = 1;
+WALL_SHADE.height = 64;
+{
+  const g = WALL_SHADE.getContext("2d");
+  const grad = g.createLinearGradient(0, 0, 0, 64);
+  grad.addColorStop(0, "rgba(0,0,0,0.36)");
+  grad.addColorStop(0.2, "rgba(0,0,0,0.06)");
+  grad.addColorStop(0.52, "rgba(0,0,0,0)");
+  grad.addColorStop(0.8, "rgba(0,0,0,0.1)");
+  grad.addColorStop(1, "rgba(0,0,0,0.4)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 1, 64);
+}
+const FOG_STYLES = Array.from({ length: 49 }, (_, i) => `rgba(18,15,12,${(i / 48).toFixed(3)})`);
+const EDGE_STYLES = Array.from({ length: 25 }, (_, i) => `rgba(0,0,0,${(i / 24 * 0.34).toFixed(3)})`);
+
+function drawPaperColumn(ctx, tile, wallX, x, top, wallH, dist, viewW, colW) {
+  const columnWorld = dist * 2 * Math.tan(FOV / 2) / Math.max(1, viewW) * colW;
+  const texels = columnWorld * tile.width;
+  let level = 0;
+  if (texels > 3.5) level = Math.min(tile.mips.length - 1, Math.floor(Math.log2(texels / 2)));
+  const mip = tile.mips[level];
+  const span = mip.width - 2;
+  const footprint = Math.min(span, Math.max(1.35, texels * span / tile.width));
+  let srcX = 1 + wallX * span - footprint * 0.5;
+  if (srcX < 0) srcX = 0;
+  const limit = mip.width - footprint;
+  if (srcX > limit) srcX = Math.max(0, limit);
+  ctx.drawImage(mip, srcX, 0, footprint, mip.height, x, top, colW, wallH);
+}
+
+function finishColumn(ctx, x, top, wallH, colW, wallX, dist, side, bright) {
+  if (wallH < 1) return;
+  ctx.drawImage(WALL_SHADE, 0, 0, 1, 64, x, top, colW, wallH);
+  if (side && !bright) {
+    ctx.fillStyle = "rgba(0,0,0,0.14)";
+    ctx.fillRect(x, top, colW, wallH);
+  }
+  const edge = Math.min(wallX, 1 - wallX);
+  if (edge < 0.18) {
+    const band = Math.min(24, Math.round((1 - edge / 0.18) * 24));
+    if (band > 0) {
+      ctx.fillStyle = EDGE_STYLES[bright ? Math.max(1, band >> 1) : band];
+      ctx.fillRect(x, top, colW, wallH);
+    }
+  }
+  let fog = Math.min(0.84, Math.max(0, (dist - 0.85) / 7.2));
+  if (bright) fog *= 0.72;
+  const slot = Math.min(48, Math.round(fog * 48));
+  if (slot > 0) {
+    ctx.fillStyle = FOG_STYLES[slot];
+    ctx.fillRect(x, top, colW, wallH);
+  }
+}
+
+function drawSky(ctx, w, h, bob) {
+  const horizon = h / 2 + bob;
+  const sky = ctx.createLinearGradient(0, 0, 0, Math.max(1, horizon));
+  sky.addColorStop(0, "#161922");
+  sky.addColorStop(1, "#120f0c");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, w, Math.max(0, horizon));
+  const ground = ctx.createLinearGradient(0, horizon, 0, Math.max(horizon + 1, h));
+  ground.addColorStop(0, "#120f0c");
+  ground.addColorStop(1, "#1a1612");
+  ctx.fillStyle = ground;
+  ctx.fillRect(0, horizon, w, h - horizon);
+}
+
+function canvasPx(canvas) {
+  const css = canvas.clientWidth || canvas.width || 1;
+  return canvas.width / css;
+}
+
+function drawWorld(ctx, world) {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+  const p = world.player;
+  const px = canvasPx(ctx.canvas);
+  const bob = Math.sin(world.bob || 0) * 3 * px;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  drawSky(ctx, w, h, bob);
+  const dirX = Math.cos(p.angle);
+  const dirY = Math.sin(p.angle);
+  const planeScale = Math.tan(FOV / 2);
+  const planeX = -dirY * planeScale;
+  const planeY = dirX * planeScale;
+  const zbuf = new Float32Array(w);
+  const facing = world.latch || null;
+  const mid = (w / 2) | 0;
+  // One ray per CSS pixel. Extra device pixels would disagree on a stripe edge
+  // and sparkle as the browser blends them.
+  const step = Math.max(1, Math.floor(px + 1e-3));
+  ctx.imageSmoothingQuality = "low";
+  let looked = null;
+  for (let x = 0; x < w; x += step) {
+    const cameraX = (2 * (x + (step - 1) * 0.5) / w) - 1;
+    const rayDirX = dirX + planeX * cameraX;
+    const rayDirY = dirY + planeY * cameraX;
+    let mapX = Math.floor(p.x);
+    let mapY = Math.floor(p.y);
+    const deltaX = Math.abs(1 / (rayDirX || 1e-6));
+    const deltaY = Math.abs(1 / (rayDirY || 1e-6));
+    let stepX, stepY, sideDistX, sideDistY;
+    if (rayDirX < 0) { stepX = -1; sideDistX = (p.x - mapX) * deltaX; }
+    else { stepX = 1; sideDistX = (mapX + 1 - p.x) * deltaX; }
+    if (rayDirY < 0) { stepY = -1; sideDistY = (p.y - mapY) * deltaY; }
+    else { stepY = 1; sideDistY = (mapY + 1 - p.y) * deltaY; }
+    let hit = 0;
+    let side = 0;
+    for (let i = 0; i < 48 && !hit; i++) {
+      if (sideDistX < sideDistY) { sideDistX += deltaX; mapX += stepX; side = 0; }
+      else { sideDistY += deltaY; mapY += stepY; side = 1; }
+      hit = world.grid[mapY]?.[mapX] ?? 1;
+    }
+    const perp = side === 0
+      ? (mapX - p.x + (1 - stepX) / 2) / (rayDirX || 1e-6)
+      : (mapY - p.y + (1 - stepY) / 2) / (rayDirY || 1e-6);
+    const dist = Math.max(0.05, perp);
+    const wallH = h / dist;
+    const top = Math.floor((h - wallH) / 2 + bob);
+    const sliceH = Math.max(1, Math.ceil((h + wallH) / 2 + bob) - top);
+    let wallX = side === 0 ? p.y + dist * rayDirY : p.x + dist * rayDirX;
+    wallX -= Math.floor(wallX);
+    const colW = Math.min(step, w - x);
+    if (x <= mid && mid < x + colW) looked = hit >= 2 ? world.doors[hit - 2] : null;
+    const entry = wallEntry(world, hit);
+    const door = hit >= 2 ? world.doors[hit - 2] : null;
+    const bright = !!(facing && ((entry && facing.entry === entry) || (door && facing.index === door.index)));
+    if (entry && paperVisible(world)) {
+      drawPaperColumn(ctx, paperTile(entry), wallX, x, top, sliceH, dist, w, colW);
+    } else if (hit >= 2) {
+      ctx.fillStyle = bright ? "#5c677a" : (side ? "#3a4354" : "#4c5668");
+      ctx.fillRect(x, top, colW, sliceH);
+    } else {
+      ctx.fillStyle = side ? "#323846" : "#3e4858";
+      ctx.fillRect(x, top, colW, sliceH);
+    }
+    finishColumn(ctx, x, top, sliceH, colW, wallX, dist, side, bright);
+    for (let k = 0; k < colW; k++) zbuf[x + k] = dist;
+  }
+  if (looked && world.prevLook && looked.index === world.prevLook.index) world.latch = looked;
+  else if (!looked) world.latch = null;
+  world.prevLook = looked;
+  world.faced = world.latch || null;
+  const prompt = document.querySelector(".use-prompt");
+  const needAim = state.phase === "ask" && state.question && state.question.needAim > performance.now();
+  if (prompt) prompt.textContent = world.faced ? "Use key" : (needAim ? "Face a lock" : "");
+  drawSprites(ctx, w, h, world, dirX, dirY, planeX, planeY, zbuf, bob);
+  drawMap(ctx, world, px);
+  const cx = (w / 2) | 0;
+  const cy = (h / 2) | 0;
+  const arm = Math.max(3, Math.round(5 * px));
+  const gap = Math.max(1, Math.round(2 * px));
+  const thick = Math.max(1, Math.round(px));
+  ctx.fillStyle = "#e6c36a";
+  ctx.fillRect(cx - gap - arm, cy - (thick >> 1), arm, thick);
+  ctx.fillRect(cx + gap, cy - (thick >> 1), arm, thick);
+  ctx.fillRect(cx - (thick >> 1), cy - gap - arm, thick, arm);
+  ctx.fillRect(cx - (thick >> 1), cy + gap, thick, arm);
+}
+
+function spriteList(world) {
+  if (world.kind === "room") {
+    return [{ x: world.sprite.x, y: world.sprite.y, entry: world.sprite.entry, label: "mark" }];
+  }
+  const numbers = state.mode === "service";
+  return world.doors.map((door) => ({
+    x: numbers ? door.mx : door.x,
+    y: numbers ? door.my : door.y,
+    entry: door.entry,
+    label: numbers ? "num" : "mark",
+  }));
+}
+
+function paintStamp(sprite, size) {
+  const s = Math.max(8, Math.floor(size));
+  stamp.width = s;
+  stamp.height = s;
+  stampCtx.clearRect(0, 0, s, s);
+  stampCtx.textAlign = "center";
+  stampCtx.textBaseline = "middle";
+  if (sprite.label === "num") {
+    stampCtx.lineWidth = Math.max(2, s / 10);
+    stampCtx.strokeStyle = "rgba(0,0,0,0.8)";
+    stampCtx.fillStyle = "#f4f0e6";
+    stampCtx.font = `700 ${Math.floor(s * 0.42)}px ui-sans-serif, sans-serif`;
+    const text = String(sprite.entry.port);
+    stampCtx.strokeText(text, s / 2, s / 2);
+    stampCtx.fillText(text, s / 2, s / 2);
+  } else if (sprite.entry.detail === "badge") {
+    drawBadge(stampCtx, s / 2, s / 2, s * 0.7);
+  } else {
+    stampCtx.font = `${Math.floor(s * 0.78)}px sans-serif`;
+    stampCtx.fillText(sprite.entry.detail, s / 2, s / 2);
+  }
+}
+
+function drawBadge(ctx, x, y, size) {
+  ctx.strokeStyle = "#111";
+  ctx.lineWidth = Math.max(1, size / 12);
+  ctx.strokeRect(x - size / 2, y - size * 0.62, size, size * 1.24);
+  ctx.beginPath();
+  ctx.arc(x, y - size * 0.22, size * 0.16, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = "#111";
+  ctx.fillRect(x - size * 0.28, y + size * 0.12, size * 0.56, Math.max(1, size * 0.06));
+  ctx.fillRect(x - size * 0.28, y + size * 0.3, size * 0.56, Math.max(1, size * 0.06));
+}
+
+function drawSprites(ctx, w, h, world, dirX, dirY, planeX, planeY, zbuf, bob) {
+  const invDet = 1 / (planeX * dirY - dirX * planeY);
+  const list = spriteList(world)
+    .map((sprite) => {
+      const dx = sprite.x - world.player.x;
+      const dy = sprite.y - world.player.y;
+      return { ...sprite, dist: dx * dx + dy * dy };
+    })
+    .sort((a, b) => b.dist - a.dist);
+  for (const sprite of list) {
+    const sx = sprite.x - world.player.x;
+    const sy = sprite.y - world.player.y;
+    const tx = invDet * (dirY * sx - dirX * sy);
+    const ty = invDet * (-planeY * sx + planeX * sy);
+    if (ty < 0.25) continue;
+    const screenX = (w / 2) * (1 + tx / ty);
+    const scale = sprite.label === "num" ? 0.55 : world.kind === "room" ? 0.9 : 0.46;
+    const size = Math.abs(h / ty) * scale;
+    if (size < 10 || screenX < -size || screenX > w + size) continue;
+    paintStamp(sprite, size);
+    const destX = Math.floor(screenX - stamp.width / 2);
+    const destY = Math.floor(h / 2 + bob - stamp.height / 2);
+    for (let col = 0; col < stamp.width; col++) {
+      const x = destX + col;
+      if (x < 0 || x >= w) continue;
+      if (zbuf[x] < ty + 0.05) continue;
+      ctx.drawImage(stamp, col, 0, 1, stamp.height, x, destY, 1, stamp.height);
+    }
+  }
+}
+
+function drawMap(ctx, world, px) {
+  const grid = world.grid;
+  const cell = Math.max(2, Math.round((grid.length > 14 ? 3 : 4) * (px || 1)));
+  const ox = 4;
+  const oy = 4;
+  for (let y = 0; y < grid.length; y++) {
+    for (let x = 0; x < grid[0].length; x++) {
+      const v = grid[y][x];
+      if (v === 0) ctx.fillStyle = "#14161c";
+      else if (v >= 2) {
+        const door = world.doors[v - 2];
+        ctx.fillStyle = door && paperVisible(world) ? door.entry.color : "#8b93a0";
+      } else ctx.fillStyle = world.paint ? world.paint.color : "#6d7686";
+      ctx.fillRect(ox + x * cell, oy + y * cell, cell - 1, cell - 1);
+    }
+  }
+  const p = world.player;
+  ctx.fillStyle = "#e6c36a";
+  ctx.save();
+  ctx.translate(ox + p.x * cell, oy + p.y * cell);
+  ctx.rotate(p.angle);
+  const tip = 4 * (px || 1);
+  ctx.beginPath();
+  ctx.moveTo(tip, 0);
+  ctx.lineTo(-tip * 0.75, tip * 0.6);
+  ctx.lineTo(-tip * 0.75, -tip * 0.6);
+  ctx.fill();
+  ctx.restore();
+}
+
+const RES_STEPS = [1, 0.75, 0.5];
+let resStep = 0;
+let resCalm = 0;
+let resFrames = 0;
+let resSlow = 0;
+
+function viewDpr() {
+  return Math.min(window.devicePixelRatio || 1, 2) * RES_STEPS[resStep];
+}
+
+function fitCanvas(canvas) {
+  const cssW = canvas.clientWidth;
+  const cssH = canvas.clientHeight;
+  if (cssW < 2 || cssH < 2) return;
+  const dpr = viewDpr();
+  const w = Math.max(1, Math.round(cssW * dpr));
+  const h = Math.max(1, Math.round(cssH * dpr));
+  if (Math.abs(canvas.width - w) < 2 && Math.abs(canvas.height - h) < 2) return;
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d", { alpha: false });
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+}
+
+function noteFrame(ms) {
+  resFrames += 1;
+  if (resFrames <= 8) return;
+  if (ms > 18) {
+    resSlow += 1;
+    resCalm = 0;
+    if (resSlow >= 8 && resStep < RES_STEPS.length - 1) {
+      resStep += 1;
+      resSlow = 0;
+    }
+    return;
+  }
+  resSlow = 0;
+  if (ms < 12 && resStep > 0) {
+    resCalm += 1;
+    if (resCalm > 180) {
+      resStep -= 1;
+      resCalm = 0;
+    }
+    return;
+  }
+  resCalm = 0;
+}
+
+function stopView() {
+  viewGen += 1;
+  if (state.viewRaf) cancelAnimationFrame(state.viewRaf);
+  state.viewRaf = 0;
+  if (state.viewWatch) clearInterval(state.viewWatch);
+  state.viewWatch = 0;
+}
+
+function startView() {
+  stopView();
+  const world = activeWorld();
+  const canvas = document.querySelector(".view");
+  if (!world || !canvas) return;
+  const gen = viewGen;
+  fitCanvas(canvas);
+  const ctx = canvas.getContext("2d", { alpha: false });
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  bindLook(canvas, world);
+  let last = performance.now();
+  const frame = (now) => {
+    if (gen !== viewGen) return;
+    const current = activeWorld();
+    if (!current || !canvas.isConnected) return;
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    const t0 = performance.now();
+    try {
+      fitCanvas(canvas);
+      stepWorld(current, dt);
+      if (state.phase === "ask" && current.halls) {
+        const hall = hallAt(current, current.player.x, current.player.y);
+        if (hall && hall.spawn && current.spawnedHall !== hall.index) {
+          current.player.x = hall.spawn.x;
+          current.player.y = hall.spawn.y;
+          current.player.angle = hall.spawn.angle;
+          current.stuckFor = 0;
+          current.spawnedHall = hall.index;
+          stopGlide(current);
+        } else if (!hall) {
+          current.spawnedHall = -1;
+        }
+      }
+      drawWorld(ctx, current);
+      noteFrame(performance.now() - t0);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  const loop = (now) => {
+    if (gen !== viewGen) return;
+    frame(now);
+    state.viewRaf = requestAnimationFrame(loop);
+  };
+  frame(last);
+  state.viewRaf = requestAnimationFrame(loop);
+  // Some embedded browsers paint a few frames, then pause requestAnimationFrame.
+  // If that happens, keep walking on a timer. A live animation frame keeps this idle.
+  state.viewWatch = setInterval(() => {
+    if (gen !== viewGen) return;
+    if (performance.now() - last > 40) frame(performance.now());
+  }, 16);
+}
+
+function bindLook(canvas, world) {
+  let dragging = false;
+  let lastX = 0;
+  let moved = 0;
+  canvas.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    moved = 0;
+    lastX = e.clientX;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - lastX;
+    lastX = e.clientX;
+    moved += Math.abs(dx);
+    world.player.angle += dx * 0.006;
+  });
+  canvas.addEventListener("pointerup", () => {
+    const wasDrag = moved > 5;
+    dragging = false;
+    if (!wasDrag && state.phase === "ask") tryOpen();
+  });
+}
+
+function tryOpen() {
+  const door = facedDoor();
+  if (door) openDoor(door.index);
+  else if (state.question) state.question.needAim = performance.now() + 900;
+}
+
+function present(target) {
+  if (state.pendingMode) {
+    state.mode = state.pendingMode;
+    state.pendingMode = null;
+  }
+  const idx = state.q + 1;
+  const doors = pickDoors(target);
+  state.question = {
+    target,
+    doors,
+    world: buildHall(doors),
+    peeked: false,
+    scheduled: false,
+    index: idx,
+    deadline: 0,
+    remaining: 8000,
+  };
+  state.reveal = null;
+  state.phase = "ask";
+  if (state.timerOn) state.question.deadline = performance.now() + 8000;
+  save();
+  render();
+  startTimer();
+}
+
+function peek() {
+  const qn = state.question;
+  if (!qn || state.phase !== "ask" || qn.peeked) return;
+  qn.peeked = true;
+  scheduleMiss(qn.target, qn.index);
+  qn.scheduled = true;
+  save();
+  render();
+}
+
+function progressSnap() {
+  return {
+    stats: JSON.parse(JSON.stringify(state.stats)),
+    recentMisses: state.recentMisses.map((m) => ({ ...m })),
+    q: state.q,
+    lastPort: state.lastPort,
+  };
+}
+
+function returnToHall() {
+  const qn = state.question;
+  if (!qn || !qn.world || !qn.world.home) {
+    if (state.phase === "weak") closeWeak();
+    return;
+  }
+  if ((state.phase === "wrong" || state.phase === "right") && qn.undo) {
+    state.stats = qn.undo.stats;
+    state.recentMisses = qn.undo.recentMisses;
+    state.q = qn.undo.q;
+    state.lastPort = qn.undo.lastPort;
+  }
+  state.phase = "ask";
+  state.reveal = null;
+  const home = qn.world.home;
+  qn.world.player.x = home.x;
+  qn.world.player.y = home.y;
+  qn.world.player.angle = home.angle;
+  qn.world.stuckFor = 0;
+  qn.world.spawnedHall = -1;
+  stopGlide(qn.world);
+  held.clear();
+  if (state.timerOn) {
+    if (!qn.deadline) qn.deadline = performance.now() + (qn.remaining > 0 ? qn.remaining : 8000);
+    startTimer();
+  }
+  save();
+  render();
+}
+
+function finish(chosen, timeout) {
+  const qn = state.question;
+  if (!qn || state.phase !== "ask") return;
+  qn.undo = progressSnap();
+  if (qn.deadline) qn.remaining = Math.max(0, qn.deadline - performance.now());
+  qn.deadline = 0;
+  stopTimer();
+  const target = qn.target;
+  const idx = qn.index;
+  const correct = !timeout && chosen && chosen.port === target.port;
+  if (!qn.scheduled) {
+    if (correct && !qn.peeked) scheduleHit(target, idx);
+    else scheduleMiss(target, idx);
+    qn.scheduled = true;
+  } else {
+    stat(target).lastSeen = idx;
+  }
+  state.q = idx;
+  state.lastPort = target.port;
+  const shown = correct || timeout ? target : chosen;
+  state.reveal = {
+    picked: chosen || null,
+    target,
+    correct,
+    timeout: !!timeout,
+    peeked: qn.peeked,
+    world: buildRoom(shown || target),
+  };
+  state.phase = correct || timeout ? "right" : "wrong";
+  save();
+  render();
+}
+
+function advance() {
+  if (state.phase === "wrong") {
+    state.phase = "right";
+    state.reveal.world = buildRoom(state.reveal.target);
+    render();
+    return;
+  }
+  if (state.phase === "right") present(pickTarget());
+}
+
+function openDoor(index) {
+  const qn = state.question;
+  if (!qn || state.phase !== "ask") return;
+  if (index < 0 || index >= qn.doors.length) return;
+  qn.selected = index;
+  finish(qn.doors[index], false);
+}
+
+function setMode(mode) {
+  if (state.phase === "ask" && state.question) {
+    state.pendingMode = mode === state.mode ? null : mode;
+  } else {
+    state.mode = mode;
+    state.pendingMode = null;
+  }
+  save();
+  render();
+}
+
+function toggleTimer() {
+  state.timerOn = !state.timerOn;
+  if (!state.timerOn) {
+    stopTimer();
+    if (state.question) state.question.deadline = 0;
+  } else if (state.phase === "ask" && state.question) {
+    state.question.remaining = 8000;
+    state.question.deadline = performance.now() + 8000;
+    startTimer();
+  }
+  save();
+  render();
+}
+
+function stopTimer() {
+  if (state.raf) cancelAnimationFrame(state.raf);
+  state.raf = 0;
+}
+
+function startTimer() {
+  stopTimer();
+  if (!state.timerOn || state.phase !== "ask" || !state.question) return;
+  if (!state.question.deadline) {
+    state.question.deadline = performance.now() + (state.question.remaining || 8000);
+  }
+  const tick = (now) => {
+    if (state.phase !== "ask" || !state.timerOn || !state.question || !state.question.deadline) return;
+    const left = state.question.deadline - now;
+    syncTimerBar();
+    if (left <= 0) {
+      finish(null, true);
+      return;
+    }
+    state.raf = requestAnimationFrame(tick);
+  };
+  state.raf = requestAnimationFrame(tick);
+}
+
+function syncTimerBar() {
+  const qn = state.question;
+  if (!qn || !qn.deadline) return;
+  const left = Math.max(0, qn.deadline - performance.now());
+  const bar = document.querySelector(".timer-bar");
+  const clock = document.querySelector(".clock");
+  if (bar) bar.style.transform = `scaleX(${left / 8000})`;
+  if (clock) clock.textContent = String(Math.max(0, Math.ceil(left / 1000)));
+}
+
+function freezeTimer() {
+  const qn = state.question;
+  if (!qn || !state.timerOn || !qn.deadline) return;
+  qn.remaining = Math.max(0, qn.deadline - performance.now());
+  qn.deadline = 0;
+  stopTimer();
+}
+
+function openWeak() {
+  if (state.phase !== "weak") state.heldPhase = state.phase;
+  freezeTimer();
+  state.phase = "weak";
+  render();
+}
+
+function closeWeak() {
+  state.phase = state.heldPhase || "ask";
+  if (state.phase === "ask" && state.timerOn && state.question) {
+    state.question.deadline = performance.now() + (state.question.remaining || 8000);
+  }
+  render();
+  startTimer();
+}
+
+function ago(lastSeen) {
+  if (lastSeen < 0) return "not seen";
+  const d = state.q - lastSeen;
+  if (d <= 0) return "just now";
+  if (d === 1) return "1 door ago";
+  return `${d} doors ago`;
+}
+
+function headerHTML() {
+  const pending = state.pendingMode;
+  return `
+    <header class="top">
+      <h1>Port Palace<span>One key. One lock. The next hall.</span></h1>
+      <div class="modes" role="group" aria-label="Quiz mode">
+        <button type="button" class="seg${pending === "number" ? " is-pending" : ""}" data-action="mode" data-mode="number" aria-pressed="${state.mode === "number"}">Number → service</button>
+        <button type="button" class="seg${pending === "service" ? " is-pending" : ""}" data-action="mode" data-mode="service" aria-pressed="${state.mode === "service"}">Service → number</button>
+      </div>
+      <div class="toggles">
+        <button type="button" class="ghost" data-action="timer" aria-pressed="${state.timerOn}">${state.timerOn ? "Timer 8s" : "Timer off"}</button>
+        <button type="button" class="ghost" data-action="weak" aria-pressed="${state.phase === "weak"}">Weak ports</button>
+      </div>
+    </header>
+    <p class="pending-note">${pending ? "The next key uses the other side." : ""}</p>`;
+}
+
+function progressHTML() {
+  const { learned, shaky, unseen } = progressOf();
+  const ticks = PORTS.map((entry) => {
+    const s = stat(entry);
+    const kind = s.lastSeen < 0 ? "" : s.streak >= 3 ? "learned" : "shaky";
+    return `<i class="tick ${kind}"></i>`;
+  }).join("");
+  return `
+    <div class="progress">
+      <div class="ticks" title="A port is learned at a streak of 3">${ticks}</div>
+      <p>${learned} learned · ${shaky} shaky · ${unseen} not seen</p>
+    </div>
+    <p class="how">${state.mode === "number"
+      ? "This key is a port number. It opens one hall, and that hall leads to the next key."
+      : "This key names a service. The halls stay plain until the key turns."}</p>`;
+}
+
+function keyCard(extra) {
+  const target = (state.reveal && state.reveal.target) || (state.question && state.question.target);
+  const words = state.mode === "service";
+  const label = extra === "is-open" ? "It turned" : extra === "is-jam" ? "It jammed" : (words ? "Key · service" : "Key · port");
+  return `
+    <div class="key${words ? " words" : ""} ${extra || ""}${state.question && state.question.peeked ? " peeked" : ""}">
+      <div class="hole"></div>
+      <div class="k">${label}</div>
+      <div class="v">${esc(words ? target.service : target.port)}</div>
+    </div>`;
+}
+
+function askHTML() {
+  const qn = state.question;
+  const target = qn.target;
+  const tablet = qn.peeked
+    ? `<div class="tablet on"><b>Hint slip</b><span>${esc(target.tablet)}</span></div>`
+    : `<button type="button" class="tablet" data-action="tablet"><b>Hint slip</b><span>Counts as a miss · T</span></button>`;
+  const clock = state.timerOn ? `<div class="clock">8</div><div class="timer-track"><div class="timer-bar"></div></div>` : "";
+  return `
+    <div class="stage">
+      ${clock}
+      <canvas class="view" width="640" height="400"></canvas>
+      <p class="use-prompt"></p>
+      <div class="hand">
+        ${keyCard("")}
+        <button type="button" class="use" data-action="usekey">Use key</button>
+        ${tablet}
+      </div>
+    </div>
+    <p class="help">Face a hall, then use the key. If it turns, that hall opens onto the next one. Esc or R returns to the crossroads.</p>`;
+}
+
+function revealHTML() {
+  const reveal = state.reveal;
+  const showingWrong = state.phase === "wrong" && reveal.picked;
+  const entry = showingWrong ? reveal.picked : reveal.target;
+  const sentence = showingWrong
+    ? `That's ${reveal.picked.port} (${reveal.picked.service}), ${reveal.picked.who}. You needed ${reveal.target.port} (${reveal.target.service}), ${reveal.target.who}.`
+    : "";
+  let kicker = "The key turns";
+  let kickerClass = "kicker";
+  let keyState = "is-open";
+  let nextLabel = "Enter the next hall";
+  if (showingWrong) {
+    kicker = "The key doesn't turn";
+    kickerClass = "kicker bad";
+    keyState = "is-jam";
+    nextLabel = "Take it to the lock it fits";
+  } else if (!reveal.correct && reveal.timeout) {
+    kicker = "The lock gave way";
+    kickerClass = "kicker bad";
+    keyState = "is-jam";
+  } else if (!reveal.correct) {
+    kicker = "This is the lock it opens";
+  }
+
+  let body = "";
+  if (showingWrong) {
+    body = `<p class="sentence">${esc(sentence)}</p><p class="go">The next hall stays shut until the key finds its own lock.</p>`;
+  } else {
+    const notes = [];
+    if (reveal.timeout) notes.push("Counted as a miss. This is the hall your key opens.");
+    else if (reveal.peeked && reveal.correct) notes.push("It turned, but the hint slip still counts as a miss.");
+    else if (reveal.peeked) notes.push("Hint slip used — counted as a miss.");
+    else if (reveal.correct) {
+      const streak = stat(reveal.target).streak;
+      notes.push(streak === 1 ? "Streak 1. The next hall is open." : `Streak ${streak}. The next hall is open.`);
+    } else notes.push("The key fits. The next hall is open.");
+    body = `
+      <h2 class="identity"><b>${entry.port}</b> ${esc(entry.service)}</h2>
+      <p class="who">${esc(entry.who)} · ${esc(entry.department)} · ${esc(entry.proto)}</p>
+      <p class="mnemonic">${esc(entry.tablet)}</p>
+      ${notes.map((n) => `<p class="note">${esc(n)}</p>`).join("")}`;
+  }
+
+  return `
+    <div class="stage">
+      <canvas class="view" width="640" height="400"></canvas>
+      <div class="room-copy"><div class="inner unlock-row">
+        ${keyCard(keyState)}
+        <div class="unlock-copy">
+          <p class="${kickerClass}">${kicker}</p>
+          ${body}
+          <button type="button" class="use" data-action="advance">${nextLabel}</button>
+        </div>
+      </div></div>
+    </div>
+    <p class="help">${showingWrong ? "Look around. Enter takes the key to the lock it actually fits. Esc returns to the crossroads." : "Enter steps through into the next hall. Esc returns to the crossroads."}</p>`;
+}
+
+function weakHTML() {
+  const rows = worstPorts();
+  const list = rows.length
+    ? `<ol>${rows.map(({ entry, s }) => `
+        <li>
+          <div class="swatch" style="--wall:${safeColor(entry.color)};background-image:url('${paperURL(entry)}')">${detailHTML(entry.detail, false)}</div>
+          <div>
+            <strong>${entry.port} ${esc(entry.service)}</strong>
+            <em>${esc(entry.who)} · ${esc(entry.department)} · ${esc(entry.proto)}</em><br>
+            <em>streak ${s.streak} · ${s.misses} ${s.misses === 1 ? "miss" : "misses"}${s.peeks ? ` · ${s.peeks} ${s.peeks === 1 ? "peek" : "peeks"}` : ""} · ${ago(s.lastSeen)}</em>
+          </div>
+        </li>`).join("")}</ol>`
+    : `<p class="empty">No weak ports yet. Misses and tablet peeks land here.</p>`;
+  return `
+    <div class="stage">
+      <div class="weak">
+        <h2>Weak ports</h2>
+        ${list}
+        <button type="button" class="back" data-action="back">Back to the hall</button>
+      </div>
+    </div>
+    <p class="help">Esc returns to the hall.</p>`;
+}
+
+function render() {
+  const main = state.phase === "weak" ? weakHTML() : state.phase === "ask" ? askHTML() : revealHTML();
+  app.innerHTML = `<div class="app">${headerHTML()}${progressHTML()}${main}</div>`;
+  if (state.phase === "ask" && state.timerOn) syncTimerBar();
+  if (state.phase === "ask" || state.phase === "wrong" || state.phase === "right") startView();
+  else stopView();
+}
+
+document.addEventListener("keydown", (e) => {
+  const key = e.key.toLowerCase();
+  const walking = state.phase === "ask" || state.phase === "wrong" || state.phase === "right";
+  if ((key === "escape" || key === "r") && walking && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    e.preventDefault();
+    returnToHall();
+    return;
+  }
+  if (key === "alt") held.add("alt");
+  if (walking && ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(key)) {
+    e.preventDefault();
+    if (!e.repeat) held.add(key);
+    if (e.altKey) held.add("alt");
+    return;
+  }
+  if ((e.key === "Enter" || e.key === " ") && walking) {
+    if (e.target.closest && e.target.closest("button")) return;
+    e.preventDefault();
+    if (e.repeat) return;
+    if (state.phase === "ask") tryOpen();
+    else advance();
+    return;
+  }
+  if (e.key === "Escape" && state.phase === "weak") {
+    closeWeak();
+    return;
+  }
+  if ((e.key === "t" || e.key === "T") && state.phase === "ask" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    peek();
+    return;
+  }
+  if (state.phase === "ask" && e.key >= "1" && e.key <= "4") {
+    const i = Number(e.key) - 1;
+    if (state.question && i < state.question.doors.length) openDoor(i);
+  }
+});
+
+document.addEventListener("keyup", (e) => {
+  held.delete(e.key.toLowerCase());
+  if (e.key === "Alt") held.delete("alt");
+});
+
+app.addEventListener("click", (e) => {
+  const door = e.target.closest("[data-door]");
+  if (door && state.phase === "ask") {
+    openDoor(Number(door.dataset.door));
+    return;
+  }
+  const action = e.target.closest("[data-action]");
+  if (!action) return;
+  const name = action.dataset.action;
+  if (name === "mode") setMode(action.dataset.mode);
+  else if (name === "timer") toggleTimer();
+  else if (name === "weak") {
+    if (state.phase === "weak") closeWeak();
+    else openWeak();
+  }   else if (name === "tablet") peek();
+  else if (name === "usekey") tryOpen();
+  else if (name === "back") closeWeak();
+  else if (name === "advance") advance();
+});
+
+window.addEventListener("resize", () => {
+  const canvas = document.querySelector(".view");
+  if (canvas) fitCanvas(canvas);
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) held.clear();
+  if (document.hidden) freezeTimer();
+  else if (state.phase === "ask" && state.timerOn && state.question && !state.question.deadline) {
+    state.question.deadline = performance.now() + (state.question.remaining || 8000);
+    startTimer();
+  }
+});
+
+for (const entry of PORTS) {
+  for (const n of entry.neighbors) {
+    if (!BY_PORT.has(n)) console.warn("Missing neighbor", n, "on port", entry.port);
+  }
+}
+
+const lockSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="black" stroke-opacity="0.4" stroke-width="2"><rect x="11" y="18" width="18" height="14" rx="2"/><path d="M15 18v-5a5 5 0 0 1 10 0V18"/></svg>`;
+document.documentElement.style.setProperty("--locks", `url("data:image/svg+xml,${encodeURIComponent(lockSvg)}")`);
+
+load();
+present(pickTarget());
+</script>
+</body>
+</html>
