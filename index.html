@@ -120,6 +120,38 @@
     pointer-events: none;
     min-height: 1.2em;
   }
+  .plaque {
+    position: absolute;
+    left: 50%;
+    top: 16%;
+    transform: translateX(-50%);
+    width: min(480px, 88%);
+    z-index: 3;
+    pointer-events: none;
+    text-align: center;
+    color: #f4f0e6;
+    background: rgba(18, 15, 12, 0.78);
+    border: 1px solid rgba(228, 194, 122, 0.45);
+    border-radius: 12px;
+    padding: 10px 14px 12px;
+  }
+  .plaque[hidden] { display: none; }
+  .plaque b {
+    display: block;
+    color: var(--gold);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .plaque span { display: block; margin-top: 6px; font-size: 15px; line-height: 1.4; }
+  .plaque .hint {
+    margin-top: 0;
+    color: var(--gold);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
   .mark { font-size: 32px; line-height: 1; }
 
   .shape.badge {
@@ -257,21 +289,21 @@
 // Twins can share a color; the pattern is what tells them apart.
 // neighbors are port numbers of easy mix-ups.
 const PORTS = [
-  { port: 53, proto: "UDP/TCP", service: "DNS", tablet: "The phonebook. Names to IP addresses.", color: "#3b6fd6", paper: "lines", detail: "📞", department: "Front Desk", who: "the receptionist", neighbors: [67, 68] },
-  { port: 67, proto: "UDP", service: "DHCP server", tablet: "Hands out addresses. 67 hands out.", color: "#1f8f86", paper: "dots", detail: "🔑", department: "Front Desk", who: "the badge office", neighbors: [68, 53] },
-  { port: 68, proto: "UDP", service: "DHCP client", tablet: "Asks for an address. 68 asks.", color: "#1f8f86", paper: "badge", detail: "badge", department: "Front Desk", who: "the visitor", neighbors: [67, 53] },
-  { port: 80, proto: "TCP", service: "HTTP", tablet: "Web, unencrypted.", color: "#8ecae6", paper: "panels", detail: "🚪", department: "Lobby", who: "the open lobby", neighbors: [443] },
-  { port: 443, proto: "TCP", service: "HTTPS", tablet: "Web, encrypted (TLS).", color: "#8ecae6", paper: "bars", detail: "🔒", secure: true, department: "Lobby", who: "the locked lobby", neighbors: [80] },
-  { port: 22, proto: "TCP", service: "SSH", tablet: "Encrypted remote shell.", color: "#6b1c1c", paper: "quiet", detail: "🤫", department: "Security", who: "the quiet guard", neighbors: [23, 3389] },
-  { port: 23, proto: "TCP", service: "Telnet", tablet: "Remote shell in plaintext.", color: "#ff3b30", paper: "hazard", detail: "📢", department: "Security", who: "the loud guard", neighbors: [22] },
-  { port: 25, proto: "TCP", service: "SMTP", tablet: "Sends mail out.", color: "#f0c043", paper: "arrows", detail: "📬", department: "Mailroom", who: "the outgoing slot", neighbors: [110, 143] },
-  { port: 110, proto: "TCP", service: "POP3", tablet: "Downloads mail and usually removes it from the server.", color: "#e2a20a", paper: "slots", detail: "📥", department: "Mailroom", who: "the pickup window", neighbors: [995, 25, 143] },
-  { port: 995, proto: "TCP", service: "POP3S", tablet: "POP3 over TLS. Same pickup, locked.", color: "#e2a20a", paper: "lockedslots", detail: "✉️", secure: true, department: "Mailroom", who: "the locked pickup", neighbors: [110] },
-  { port: 143, proto: "TCP", service: "IMAP", tablet: "Reads mail and leaves it on the server.", color: "#f3d36a", paper: "shelves", detail: "🗂️", department: "Mailroom", who: "the mail shelf", neighbors: [993, 25, 110] },
-  { port: 993, proto: "TCP", service: "IMAPS", tablet: "IMAP over TLS. Same shelf, locked.", color: "#f3d36a", paper: "lockedshelves", detail: "📚", secure: true, department: "Mailroom", who: "the locked shelf", neighbors: [143] },
-  { port: 389, proto: "TCP", service: "LDAP", tablet: "Directory lookups. Who works here.", color: "#7e8b99", paper: "drawers", detail: "🗄️", department: "HR Directory", who: "the open cabinet", neighbors: [636] },
-  { port: 636, proto: "TCP", service: "LDAPS", tablet: "LDAP over TLS. Same cabinet, locked.", color: "#7e8b99", paper: "lockeddrawers", detail: "📇", secure: true, department: "HR Directory", who: "the locked cabinet", neighbors: [389] },
-  { port: 3389, proto: "TCP", service: "RDP", tablet: "Remote desktop.", color: "#d6453d", paper: "grid", detail: "🖥️", department: "Security", who: "the screen room", neighbors: [22, 23] },
+  { port: 53, proto: "UDP/TCP", service: "DNS", tablet: "The phonebook. Names to IP addresses.", why: "You ask for a name. This hall looks up the number address of that machine and says it back. That lookup is DNS.", color: "#3b6fd6", paper: "lines", detail: "📞", department: "Front Desk", who: "the receptionist", neighbors: [67, 68] },
+  { port: 67, proto: "UDP", service: "DHCP server", tablet: "Hands out addresses. 67 hands out.", why: "A machine with no address yet waits here, and this desk hands one out. The desk that gives addresses is the DHCP server, port 67. The visitor asking is port 68.", color: "#1f8f86", paper: "dots", detail: "🔑", department: "Front Desk", who: "the badge office", neighbors: [68, 53] },
+  { port: 68, proto: "UDP", service: "DHCP client", tablet: "Asks for an address. 68 asks.", why: "This is the visitor asking for an address. The ask leaves on 68. The desk that answers, and hands the address out, is port 67.", color: "#1f8f86", paper: "badge", detail: "badge", department: "Front Desk", who: "the visitor", neighbors: [67, 53] },
+  { port: 80, proto: "TCP", service: "HTTP", tablet: "Web, unencrypted.", why: "Web pages cross this lobby in the open. Anyone in the hall can read them as they pass. That open trip is HTTP. The sealed version of the same pages is port 443.", color: "#8ecae6", paper: "panels", detail: "🚪", department: "Lobby", who: "the open lobby", neighbors: [443] },
+  { port: 443, proto: "TCP", service: "HTTPS", tablet: "Web, encrypted (TLS).", why: "The same web pages as the open lobby, carried in a sealed envelope. The hall sees that a letter went by, not the page inside. The pages are the web. The envelope is TLS. Together they are HTTPS.", color: "#8ecae6", paper: "bars", detail: "🔒", secure: true, department: "Lobby", who: "the locked lobby", neighbors: [80] },
+  { port: 22, proto: "TCP", service: "SSH", tablet: "Encrypted remote shell.", why: "You borrow a command line on another machine. The commands ride in a sealed envelope, so the hall cannot hear them. That quiet trip is SSH. The loud version is Telnet, port 23.", color: "#6b1c1c", paper: "quiet", detail: "🤫", department: "Security", who: "the quiet guard", neighbors: [23, 3389] },
+  { port: 23, proto: "TCP", service: "Telnet", tablet: "Remote shell in plaintext.", why: "You borrow a command line, and this guard says every command out loud. Anyone in the hall can read them. That open trip is Telnet. The sealed version is SSH, port 22.", color: "#ff3b30", paper: "hazard", detail: "📢", department: "Security", who: "the loud guard", neighbors: [22] },
+  { port: 25, proto: "TCP", service: "SMTP", tablet: "Sends mail out.", why: "Mail leaving the building goes out this slot. It sends. It does not keep the letters for you to read later. That outgoing slot is SMTP.", color: "#f0c043", paper: "arrows", detail: "📬", department: "Mailroom", who: "the outgoing slot", neighbors: [110, 143] },
+  { port: 110, proto: "TCP", service: "POP3", tablet: "Downloads mail and usually removes it from the server.", why: "You take your mail with you. The letters usually leave the server once you have them. That take-it-home window is POP3. The shelf where letters stay is IMAP, port 143.", color: "#e2a20a", paper: "slots", detail: "📥", department: "Mailroom", who: "the pickup window", neighbors: [995, 25, 143] },
+  { port: 995, proto: "TCP", service: "POP3S", tablet: "POP3 over TLS. Same pickup, locked.", why: "The same take-it-home window, with the letters inside a sealed envelope. POP3 is the taking. TLS is the envelope. The open pickup, with no envelope, is port 110.", color: "#e2a20a", paper: "lockedslots", detail: "✉️", secure: true, department: "Mailroom", who: "the locked pickup", neighbors: [110] },
+  { port: 143, proto: "TCP", service: "IMAP", tablet: "Reads mail and leaves it on the server.", why: "You read the mail and leave it on the shelf, so your phone and your computer open the same letters. That stay-here reading is IMAP. Taking the letters home is POP3, port 110.", color: "#f3d36a", paper: "shelves", detail: "🗂️", department: "Mailroom", who: "the mail shelf", neighbors: [993, 25, 110] },
+  { port: 993, proto: "TCP", service: "IMAPS", tablet: "IMAP over TLS. Same shelf, locked.", why: "The same shelf: the letters stay, and the walk to the shelf is sealed. IMAP is the reading. TLS is the envelope. The open shelf, with no envelope, is port 143.", color: "#f3d36a", paper: "lockedshelves", detail: "📚", secure: true, department: "Mailroom", who: "the locked shelf", neighbors: [143] },
+  { port: 389, proto: "TCP", service: "LDAP", tablet: "Directory lookups. Who works here.", why: "This cabinet stores who works here: names, departments, which keys they hold. You ask, and the answer crosses the hall in the clear. That open question is LDAP. The sealed trip to the same cabinet is port 636.", color: "#7e8b99", paper: "drawers", detail: "🗄️", department: "HR Directory", who: "the open cabinet", neighbors: [636] },
+  { port: 636, proto: "TCP", service: "LDAPS", tablet: "LDAP over TLS. Same cabinet, locked.", why: "The same cabinet of who works here. The question and the answer ride in a sealed envelope, so the hall cannot read the names. LDAP is the question. TLS is the envelope. This locked trip is LDAPS. The open trip is port 389.", color: "#7e8b99", paper: "lockeddrawers", detail: "🔐", secure: true, department: "HR Directory", who: "the locked cabinet", neighbors: [389] },
+  { port: 3389, proto: "TCP", service: "RDP", tablet: "Remote desktop.", why: "You see another computer's screen and move its mouse from here. What travels this hall is the picture of that desktop. That remote screen is RDP.", color: "#d6453d", paper: "grid", detail: "🖥️", department: "Security", who: "the screen room", neighbors: [22, 23] },
 ];
 
 const BY_PORT = new Map(PORTS.map((p) => [p.port, p]));
@@ -952,7 +984,7 @@ function buildHall(doors) {
     grid,
     doors: placed,
     halls,
-    player: { x: 10.5, y: 10.5, angle: -Math.PI / 2 },
+    player: { x: 10.5, y: 10.5, angle: -Math.PI / 2, pitch: 0 },
     bob: 0,
     stuckFor: 0,
     spawnedHall: -1,
@@ -982,7 +1014,7 @@ function buildRoom(entry) {
     doors: [],
     paint: entry,
     sprite: { x: 4.2, y: 2.85, entry },
-    player: { x: 3.5, y: 4.5, angle: -Math.PI / 2 },
+    player: { x: 3.5, y: 4.5, angle: -Math.PI / 2, pitch: 0 },
     bob: 0,
     stuckFor: 0,
   };
@@ -1157,9 +1189,11 @@ function drawWorld(ctx, world) {
   const p = world.player;
   const px = canvasPx(ctx.canvas);
   const bob = Math.sin(world.bob || 0) * 3 * px;
+  const look = Math.round(Math.sin(p.pitch || 0) * h * 0.9);
+  const gaze = bob + look;
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
-  drawSky(ctx, w, h, bob);
+  drawSky(ctx, w, h, gaze);
   const dirX = Math.cos(p.angle);
   const dirY = Math.sin(p.angle);
   const planeScale = Math.tan(FOV / 2);
@@ -1198,8 +1232,8 @@ function drawWorld(ctx, world) {
       : (mapY - p.y + (1 - stepY) / 2) / (rayDirY || 1e-6);
     const dist = Math.max(0.05, perp);
     const wallH = h / dist;
-    const top = Math.floor((h - wallH) / 2 + bob);
-    const sliceH = Math.max(1, Math.ceil((h + wallH) / 2 + bob) - top);
+    const top = Math.floor((h - wallH) / 2 + gaze);
+    const sliceH = Math.max(1, Math.ceil((h + wallH) / 2 + gaze) - top);
     let wallX = side === 0 ? p.y + dist * rayDirY : p.x + dist * rayDirX;
     wallX -= Math.floor(wallX);
     const colW = Math.min(step, w - x);
@@ -1226,7 +1260,23 @@ function drawWorld(ctx, world) {
   const prompt = document.querySelector(".use-prompt");
   const needAim = state.phase === "ask" && state.question && state.question.needAim > performance.now();
   if (prompt) prompt.textContent = world.faced ? "Use key" : (needAim ? "Face a lock" : "");
-  drawSprites(ctx, w, h, world, dirX, dirY, planeX, planeY, zbuf, bob);
+  const plaque = document.querySelector(".plaque");
+  if (plaque) {
+    const entry = world.kind === "room" ? world.paint : (world.faced && world.faced.entry);
+    const reading = (p.pitch || 0) > 0.2;
+    let html = "";
+    if (entry && reading) {
+      html = `<b>${entry.port} ${esc(entry.service)} · ${esc(entry.who)}</b><span>${esc(entry.why || entry.tablet)}</span>`;
+    } else if (entry && world.kind !== "room") {
+      html = `<span class="hint">Look up. The plaque says why.</span>`;
+    }
+    if (plaque.dataset.html !== html) {
+      plaque.dataset.html = html;
+      plaque.innerHTML = html;
+      plaque.hidden = !html;
+    }
+  }
+  drawSprites(ctx, w, h, world, dirX, dirY, planeX, planeY, zbuf, gaze);
   drawMap(ctx, world, px);
   const cx = (w / 2) | 0;
   const cy = (h / 2) | 0;
@@ -1465,19 +1515,25 @@ function startView() {
 function bindLook(canvas, world) {
   let dragging = false;
   let lastX = 0;
+  let lastY = 0;
   let moved = 0;
   canvas.addEventListener("pointerdown", (e) => {
     dragging = true;
     moved = 0;
     lastX = e.clientX;
+    lastY = e.clientY;
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener("pointermove", (e) => {
     if (!dragging) return;
     const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
     lastX = e.clientX;
-    moved += Math.abs(dx);
+    lastY = e.clientY;
+    moved += Math.abs(dx) + Math.abs(dy);
     world.player.angle += dx * 0.006;
+    const pitch = (world.player.pitch || 0) - dy * 0.004;
+    world.player.pitch = Math.max(-0.42, Math.min(0.72, pitch));
   });
   canvas.addEventListener("pointerup", () => {
     const wasDrag = moved > 5;
@@ -1758,13 +1814,14 @@ function askHTML() {
   const qn = state.question;
   const target = qn.target;
   const tablet = qn.peeked
-    ? `<div class="tablet on"><b>Hint slip</b><span>${esc(target.tablet)}</span></div>`
+    ? `<div class="tablet on"><b>Hint slip</b><span>${esc(target.why || target.tablet)}</span></div>`
     : `<button type="button" class="tablet" data-action="tablet"><b>Hint slip</b><span>Counts as a miss · T</span></button>`;
   const clock = state.timerOn ? `<div class="clock">8</div><div class="timer-track"><div class="timer-bar"></div></div>` : "";
   return `
     <div class="stage">
       ${clock}
       <canvas class="view" width="640" height="400"></canvas>
+      <p class="plaque" hidden></p>
       <p class="use-prompt"></p>
       <div class="hand">
         ${keyCard("")}
@@ -1772,7 +1829,7 @@ function askHTML() {
         ${tablet}
       </div>
     </div>
-    <p class="help">Face a hall, then use the key. If it turns, that hall opens onto the next one. Esc or R returns to the crossroads.</p>`;
+    <p class="help">Face a hall, then use the key. Drag up to read why that hall works. Esc or R returns to the crossroads.</p>`;
 }
 
 function revealHTML() {
@@ -1801,7 +1858,7 @@ function revealHTML() {
 
   let body = "";
   if (showingWrong) {
-    body = `<p class="sentence">${esc(sentence)}</p><p class="go">The next hall stays shut until the key finds its own lock.</p>`;
+    body = `<p class="sentence">${esc(sentence)}</p><p class="mnemonic">${esc(reveal.picked.why || reveal.picked.tablet)}</p><p class="go">Your key opens ${reveal.target.port}, ${esc(reveal.target.who)}. ${esc(reveal.target.why || reveal.target.tablet)}</p>`;
   } else {
     const notes = [];
     if (reveal.timeout) notes.push("Counted as a miss. This is the hall your key opens.");
@@ -1814,13 +1871,14 @@ function revealHTML() {
     body = `
       <h2 class="identity"><b>${entry.port}</b> ${esc(entry.service)}</h2>
       <p class="who">${esc(entry.who)} · ${esc(entry.department)} · ${esc(entry.proto)}</p>
-      <p class="mnemonic">${esc(entry.tablet)}</p>
+      <p class="mnemonic">${esc(entry.why || entry.tablet)}</p>
       ${notes.map((n) => `<p class="note">${esc(n)}</p>`).join("")}`;
   }
 
   return `
     <div class="stage">
       <canvas class="view" width="640" height="400"></canvas>
+      <p class="plaque" hidden></p>
       <div class="room-copy"><div class="inner unlock-row">
         ${keyCard(keyState)}
         <div class="unlock-copy">
@@ -1830,7 +1888,7 @@ function revealHTML() {
         </div>
       </div></div>
     </div>
-    <p class="help">${showingWrong ? "Look around. Enter takes the key to the lock it actually fits. Esc returns to the crossroads." : "Enter steps through into the next hall. Esc returns to the crossroads."}</p>`;
+    <p class="help">${showingWrong ? "Look up to read why each hall works. Enter takes the key to the lock it actually fits. Esc returns to the crossroads." : "Look up to read why this hall works. Enter steps through into the next hall. Esc returns to the crossroads."}</p>`;
 }
 
 function weakHTML() {
@@ -1842,6 +1900,7 @@ function weakHTML() {
           <div>
             <strong>${entry.port} ${esc(entry.service)}</strong>
             <em>${esc(entry.who)} · ${esc(entry.department)} · ${esc(entry.proto)}</em><br>
+            <em>${esc(entry.why || entry.tablet)}</em><br>
             <em>streak ${s.streak} · ${s.misses} ${s.misses === 1 ? "miss" : "misses"}${s.peeks ? ` · ${s.peeks} ${s.peeks === 1 ? "peek" : "peeks"}` : ""} · ${ago(s.lastSeen)}</em>
           </div>
         </li>`).join("")}</ol>`
